@@ -724,8 +724,8 @@ body {
 /* ── SCHEDULE TOOLBAR (prof filter + inline search) ── */
 .schedule-toolbar {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
@@ -735,30 +735,91 @@ body {
   min-width: 0;
 }
 .schedule-search {
+  flex-shrink: 0;
+  width: 260px;
+}
+
+/* ── Modern search box ───────────────────────────────── */
+.search-box {
   position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--white);
+  border: 1.5px solid var(--blue-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+.search-box:hover {
+  border-color: #a0b8c0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.search-box:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 3px rgba(39,57,63,0.09);
+}
+.search-box-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+.search-box:focus-within .search-box-icon { color: var(--blue); }
+.schedule-search-input {
+  width: 100%;
+  padding: 10px 32px 10px 36px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 500;
+  outline: none;
+  font-family: inherit;
+}
+.schedule-search-input::placeholder { color: var(--text-muted); font-weight: 400; }
+.search-clear-btn {
+  position: absolute;
+  right: 9px;
+  background: var(--blue-border);
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, transform 0.1s;
   flex-shrink: 0;
 }
-.schedule-search-input {
-  background: rgba(39,57,63,0.07);
-  border: 1.5px solid var(--blue-border);
-  border-radius: 20px;
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 6px 14px 6px 32px;
-  width: 185px;
-  outline: none;
-  transition: border-color 0.15s, width 0.2s, background 0.15s;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: 11px center;
+.search-clear-btn:hover { background: var(--blue); color: #fff; transform: scale(1.1); }
+
+/* Result hint below search */
+.search-result-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  padding-left: 4px;
+  min-height: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
 }
-.schedule-search-input::placeholder { color: var(--text-muted); font-weight: 500; }
-.schedule-search-input:focus {
-  border-color: var(--blue);
-  background-color: var(--white);
-  width: 220px;
-  box-shadow: var(--shadow);
+.search-result-hint.has-results { color: var(--success); }
+.search-result-hint.no-results  { color: var(--red); }
+
+/* Cells with no matching student during search */
+.grid-cell.search-no-match {
+  background: var(--blue-light) !important;
+  opacity: 0.45;
 }
 
 /* ── NAV SEARCH DROPDOWN (shared by inline search) ──── */
@@ -955,13 +1016,21 @@ body {
 [data-theme="dark"] .students-collapse summary:hover { background: var(--blue-mid); }
 [data-theme="dark"] .collapse-body                { border-color: var(--blue-border); }
 
-/* ── Schedule search input ── */
-[data-theme="dark"] .schedule-search-input {
-  background: rgba(255,255,255,0.07);
+/* ── Search box (schedule) ── */
+[data-theme="dark"] .search-box {
+  background: var(--white);
   border-color: var(--blue-border);
-  color: var(--text);
+  box-shadow: none;
 }
+[data-theme="dark"] .search-box:focus-within {
+  border-color: #4a7a9a;
+  box-shadow: 0 0 0 3px rgba(74,122,154,0.15);
+}
+[data-theme="dark"] .search-box:hover { border-color: #3a5a6a; }
+[data-theme="dark"] .schedule-search-input { color: var(--text); background: transparent; }
 [data-theme="dark"] .schedule-search-input::placeholder { color: var(--text-muted); }
+[data-theme="dark"] .search-clear-btn { background: var(--blue-mid); color: var(--text-muted); }
+[data-theme="dark"] .grid-cell.search-no-match { background: #0d1820 !important; }
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
 @media (max-width: 900px) {

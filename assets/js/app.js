@@ -148,6 +148,9 @@ async function initSchedule() {
 
     container.innerHTML = '';
     container.appendChild(grid);
+
+    // Re-apply search filter if active
+    if (_activeSearchTerm) filterSchedule(_activeSearchTerm);
   }
 
   function buildSlotCard(slot, weekStr) {
@@ -390,48 +393,85 @@ function initDarkMode() {
 }
 
 // ── Schedule student filter ───────────────────────────
+let _activeSearchTerm = '';
+
 function filterSchedule(term) {
   const container = document.getElementById('schedule-container');
   if (!container) return;
 
-  const cards   = container.querySelectorAll('.slot-card');
-  const addBtns = container.querySelectorAll('.grid-cell-add');
-  const cells   = container.querySelectorAll('.grid-cell');
+  _activeSearchTerm = term;
+
+  const hint     = document.getElementById('search-result-hint');
+  const clearBtn = document.getElementById('search-clear-btn');
+  if (clearBtn) clearBtn.style.display = term ? '' : 'none';
+
+  // Reset
+  container.querySelectorAll('.slot-card').forEach(c => { c.style.display = ''; });
+  container.querySelectorAll('.grid-cell-add').forEach(b => { b.style.display = ''; });
+  container.querySelectorAll('.grid-cell').forEach(cell => cell.classList.remove('search-no-match'));
 
   if (!term) {
-    cards.forEach(c  => { c.style.opacity = ''; c.style.pointerEvents = ''; });
-    addBtns.forEach(b => { b.style.display = ''; });
-    cells.forEach(cell => { cell.style.opacity = ''; });
+    if (hint) { hint.textContent = ''; hint.className = 'search-result-hint'; }
     return;
   }
 
-  const q = term.toLowerCase();
+  const q = term.toLowerCase().trim();
+  let matchCount = 0;
 
-  cards.forEach(card => {
-    const names = [...card.querySelectorAll('.student-tag span:first-child')]
-      .map(el => el.textContent.toLowerCase());
-    const match = names.some(n => n.includes(q));
-    card.style.opacity       = match ? '1' : '0.12';
-    card.style.pointerEvents = match ? '' : 'none';
+  container.querySelectorAll('.slot-card').forEach(card => {
+    // Collect all student names from .student-tag elements (reliable: use full textContent trimmed)
+    const studentList = card.querySelector('.student-list');
+    const tagTexts = studentList
+      ? [...studentList.querySelectorAll('.student-tag')].map(t => {
+          // Get just the name text, excluding inner badge spans
+          const nameSpan = t.querySelector('span');
+          if (!nameSpan) return t.textContent.toLowerCase();
+          // Clone to remove child badge spans before reading text
+          const clone = nameSpan.cloneNode(true);
+          clone.querySelectorAll('span').forEach(s => s.remove());
+          return clone.textContent.toLowerCase();
+        })
+      : [];
+
+    const match = tagTexts.some(txt => txt.includes(q));
+    if (!match) {
+      card.style.display = 'none';
+    } else {
+      matchCount++;
+    }
   });
 
-  addBtns.forEach(b => { b.style.display = 'none'; });
-
-  cells.forEach(cell => {
-    const hasMatch = [...cell.querySelectorAll('.slot-card')]
-      .some(c => c.style.opacity !== '0.12');
-    cell.style.opacity = hasMatch ? '1' : '0.35';
+  // Hide add buttons and mark empty cells
+  container.querySelectorAll('.grid-cell-add').forEach(b => { b.style.display = 'none'; });
+  container.querySelectorAll('.grid-cell:not(.empty)').forEach(cell => {
+    const hasVisible = [...cell.querySelectorAll('.slot-card')].some(c => c.style.display !== 'none');
+    if (!hasVisible) cell.classList.add('search-no-match');
   });
+
+  if (hint) {
+    if (matchCount === 0) {
+      hint.textContent = `Sin resultados para "${term}"`;
+      hint.className = 'search-result-hint no-results';
+    } else {
+      hint.textContent = `${matchCount} grupo${matchCount !== 1 ? 's' : ''} encontrado${matchCount !== 1 ? 's' : ''}`;
+      hint.className = 'search-result-hint has-results';
+    }
+  }
 }
 
 function initNavSearch() {
-  const input = document.getElementById('nav-search-input');
+  const input    = document.getElementById('nav-search-input');
+  const clearBtn = document.getElementById('search-clear-btn');
   if (!input) return;
+
+  if (clearBtn) {
+    clearBtn.onclick = () => { input.value = ''; filterSchedule(''); input.focus(); };
+  }
 
   let timer;
   input.addEventListener('input', () => {
     clearTimeout(timer);
-    timer = setTimeout(() => filterSchedule(input.value.trim()), 180);
+    timer = setTimeout(() => filterSchedule(input.value.trim()), 200);
   });
 
   input.addEventListener('keydown', e => {
