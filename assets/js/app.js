@@ -152,38 +152,36 @@ async function initSchedule() {
     card.innerHTML = `
       <div class="slot-header">
         <span class="prof-name">${slot.professor_name}</span>
-        ${isActive ? `<span class="slot-capacity">${booked}/${max}</span>` : ''}
+        <span class="slot-capacity" style="${!isActive ? 'opacity:0.7' : ''}">${booked}/${max}</span>
       </div>
       <div class="slot-class">${slot.class_name || fmtTime(slot.start_time)}</div>
       ${!isActive ? `<span class="slot-status-badge">${statusLabels[status] || status}</span>` : ''}
-      ${isActive ? '<div class="student-list"></div>' : ''}
+      <div class="student-list"></div>
       ${isActive && !isFull ? '<button class="add-student-btn">+ Inscribir</button>' : ''}
     `;
 
-    if (isActive) {
-      const list = card.querySelector('.student-list');
-      slot.bookings.forEach(b => {
-        const tag = mkDiv('student-tag' + (b.is_trial ? ' is-trial' : ''), '');
-        tag.innerHTML = `
-          <span>${b.student_name}${b.is_trial ? '<span class="trial-badge">PRUEBA</span>' : ''}</span>
-          <button class="remove-btn" title="Quitar del grupo">×</button>
-        `;
-        tag.querySelector('.remove-btn').onclick = async (e) => {
-          e.stopPropagation();
-          if (!confirm(`¿Quitar a ${b.student_name} de este grupo?`)) return;
-          try {
-            await api('api/bookings.php', 'DELETE', { booking_id: b.booking_id });
-            toast('Estudiante quitado del grupo', 'success');
-            renderSchedule();
-          } catch (err) { toast(err.message, 'error'); }
-        };
-        list.appendChild(tag);
-      });
+    const list = card.querySelector('.student-list');
+    slot.bookings.forEach(b => {
+      const tag = mkDiv('student-tag' + (b.is_trial ? ' is-trial' : b.is_award ? ' is-award' : ''), '');
+      tag.innerHTML = `
+        <span>${b.student_name}${b.is_trial ? '<span class="trial-badge">PRUEBA</span>' : b.is_award ? '<span class="award-badge">PREMIO</span>' : ''}</span>
+        <button class="remove-btn" title="Quitar del grupo">×</button>
+      `;
+      tag.querySelector('.remove-btn').onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm(`¿Quitar a ${b.student_name} de este grupo?`)) return;
+        try {
+          await api('api/bookings.php', 'DELETE', { booking_id: b.booking_id });
+          toast('Estudiante quitado del grupo', 'success');
+          renderSchedule();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+      list.appendChild(tag);
+    });
 
-      const addBtn = card.querySelector('.add-student-btn');
-      if (addBtn) addBtn.onclick = (e) => { e.stopPropagation(); openModal(slot, programId, weekStr, () => renderSchedule()); };
-      card.onclick = () => openModal(slot, programId, weekStr, () => renderSchedule());
-    }
+    const addBtn = card.querySelector('.add-student-btn');
+    if (addBtn) addBtn.onclick = (e) => { e.stopPropagation(); openModal(slot, programId, weekStr, () => renderSchedule()); };
+    card.onclick = () => openModal(slot, programId, weekStr, () => renderSchedule());
 
     return card;
   }
@@ -239,6 +237,7 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
         <span>
           ${b.student_name}
           ${b.is_trial ? `<span class="trial-badge" style="background:var(--red);margin-left:6px">PRUEBA ${b.trial_date || ''}</span>` : ''}
+          ${b.is_award ? `<span class="award-badge" style="margin-left:6px">PREMIO ${b.award_date || ''}</span>` : ''}
         </span>
         <button class="del-booking">Quitar</button>
       `;
@@ -256,16 +255,21 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
     });
   }
 
-  const searchInput  = document.getElementById('student-search');
-  const select       = document.getElementById('student-select');
-  const trialCheck   = document.getElementById('is-trial-check');
-  const trialDateWrap= document.getElementById('trial-date-wrap');
-  const trialDateIn  = document.getElementById('trial-date-input');
+  const searchInput   = document.getElementById('student-search');
+  const select        = document.getElementById('student-select');
+  const bookingType   = document.getElementById('booking-type');
+  const specialWrap   = document.getElementById('special-date-wrap');
+  const specialLabel  = document.getElementById('special-date-label');
+  const specialDateIn = document.getElementById('special-date-input');
 
-  searchInput.value = '';
-  trialCheck.checked = false;
-  trialDateWrap.style.display = 'none';
-  trialDateIn.value = trialDateDefault;
+  const form = document.getElementById('add-booking-form');
+  const isSlotActive = (slot.slot_status || 'active') === 'active';
+  form.style.display = isSlotActive ? 'block' : 'none';
+
+  searchInput.value   = '';
+  bookingType.value   = 'regular';
+  specialWrap.style.display = 'none';
+  specialDateIn.value = trialDateDefault;
   populateSelect(select, allStudents, slot.bookings.map(b => b.student_id));
 
   searchInput.oninput = () => {
@@ -273,33 +277,48 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
     populateSelect(select, filtered, slot.bookings.map(b => b.student_id));
   };
 
-  trialCheck.onchange = () => {
-    trialDateWrap.style.display = trialCheck.checked ? 'block' : 'none';
+  bookingType.onchange = () => {
+    const t = bookingType.value;
+    if (t !== 'regular') {
+      specialWrap.style.display = 'block';
+      specialLabel.textContent  = t === 'trial' ? 'Fecha de la clase de prueba' : 'Fecha de la clase premio';
+    } else {
+      specialWrap.style.display = 'none';
+    }
   };
 
-  const form = document.getElementById('add-booking-form');
   form.onsubmit = async (e) => {
     e.preventDefault();
     const studentId = parseInt(select.value);
     if (!studentId) { toast('Selecciona un estudiante', 'error'); return; }
-    const isTrial = trialCheck.checked;
+    const type    = bookingType.value;
+    const isTrial = type === 'trial' ? 1 : 0;
+    const isAward = type === 'award' ? 1 : 0;
+    if ((isTrial || isAward) && !specialDateIn.value) {
+      toast('Selecciona una fecha', 'error'); return;
+    }
     try {
       const res = await api('api/bookings.php', 'POST', {
         slot_id:    slot.slot_id,
         student_id: studentId,
         program_id: programId,
-        is_trial:   isTrial ? 1 : 0,
-        trial_date: isTrial ? trialDateIn.value : null,
+        is_trial:   isTrial,
+        trial_date: isTrial ? specialDateIn.value : null,
+        is_award:   isAward,
+        award_date: isAward ? specialDateIn.value : null,
       });
       const student = allStudents.find(s => s.id === studentId);
       slot.bookings.push({
         booking_id:   res.booking_id,
         student_id:   studentId,
         student_name: student.name,
-        is_trial:     isTrial,
-        trial_date:   isTrial ? trialDateIn.value : null,
+        is_trial:     !!isTrial,
+        trial_date:   isTrial ? specialDateIn.value : null,
+        is_award:     !!isAward,
+        award_date:   isAward ? specialDateIn.value : null,
       });
-      toast(isTrial ? 'Clase de prueba registrada' : 'Estudiante inscrito en el grupo', 'success');
+      const label = isTrial ? 'Clase de prueba registrada' : isAward ? 'Clase premio registrada' : 'Estudiante inscrito en el grupo';
+      toast(label, 'success');
       renderModalContent(slot, programId, weekStr, trialDateDefault, onSuccess);
       if (onSuccess) onSuccess();
     } catch (err) { toast(err.message, 'error'); }

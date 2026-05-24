@@ -19,13 +19,18 @@ if ($method === 'POST') {
     $slotId    = (int)($input['slot_id']    ?? 0);
     $studentId = (int)($input['student_id'] ?? 0);
     $isTrial   = !empty($input['is_trial']) ? 1 : 0;
+    $isAward   = !empty($input['is_award']) ? 1 : 0;
     $trialDate = $isTrial ? ($input['trial_date'] ?? null) : null;
+    $awardDate = $isAward ? ($input['award_date'] ?? null) : null;
 
     if (!$slotId || !$studentId) {
         jsonResponse(['ok' => false, 'error' => 'slot_id y student_id son requeridos'], 400);
     }
     if ($isTrial && !$trialDate) {
         jsonResponse(['ok' => false, 'error' => 'Para clase de prueba debes indicar la fecha'], 400);
+    }
+    if ($isAward && !$awardDate) {
+        jsonResponse(['ok' => false, 'error' => 'Para clase premio debes indicar la fecha'], 400);
     }
 
     // Check slot status — only active groups accept enrollments
@@ -37,20 +42,25 @@ if ($method === 'POST') {
         jsonResponse(['ok' => false, 'error' => 'Este grupo está cerrado o pendiente de activar'], 409);
     }
 
-    // Capacity check (permanent enrollments + trials for same date)
+    // Capacity check: permanent + same-date specials count against capacity
+    $dateForCap = $trialDate ?? $awardDate ?? '0000-00-00';
     $capStmt = $db->prepare("
         SELECT COUNT(*) FROM enrollments
         WHERE time_slot_id = ? AND status = 'active'
-          AND (is_trial = 0 OR (is_trial = 1 AND trial_date = ?))
+          AND (
+            (is_trial = 0 AND is_award = 0)
+            OR (is_trial = 1 AND trial_date = ?)
+            OR (is_award = 1 AND award_date = ?)
+          )
     ");
-    $capStmt->execute([$slotId, $trialDate ?? '0000-00-00']);
+    $capStmt->execute([$slotId, $dateForCap, $dateForCap]);
     if ((int)$capStmt->fetchColumn() >= $slot['max_students']) {
         jsonResponse(['ok' => false, 'error' => 'Este grupo ya está lleno (' . $slot['max_students'] . '/' . $slot['max_students'] . ' cupos)'], 409);
     }
 
-    // Duplicate check (same student, same slot, non-trial)
-    if (!$isTrial) {
-        $dup = $db->prepare("SELECT id FROM enrollments WHERE time_slot_id=? AND student_id=? AND status='active' AND is_trial=0");
+    // Duplicate check for regular enrollments only
+    if (!$isTrial && !$isAward) {
+        $dup = $db->prepare("SELECT id FROM enrollments WHERE time_slot_id=? AND student_id=? AND status='active' AND is_trial=0 AND is_award=0");
         $dup->execute([$slotId, $studentId]);
         if ($dup->fetch()) {
             jsonResponse(['ok' => false, 'error' => 'Este estudiante ya está inscrito en este grupo'], 409);
@@ -58,10 +68,10 @@ if ($method === 'POST') {
     }
 
     $ins = $db->prepare("
-        INSERT INTO enrollments (time_slot_id, student_id, enrolled_date, is_trial, trial_date, notes)
-        VALUES (?, ?, CURRENT_DATE, ?, ?, ?)
+        INSERT INTO enrollments (time_slot_id, student_id, enrolled_date, is_trial, trial_date, is_award, award_date, notes)
+        VALUES (?, ?, CURRENT_DATE, ?, ?, ?, ?, ?)
     ");
-    $ins->execute([$slotId, $studentId, $isTrial, $trialDate, $input['notes'] ?? '']);
+    $ins->execute([$slotId, $studentId, $isTrial, $trialDate, $isAward, $awardDate, $input['notes'] ?? '']);
     jsonResponse(['ok' => true, 'booking_id' => (int)$db->lastInsertId()]);
 }
 

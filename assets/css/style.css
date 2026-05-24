@@ -623,11 +623,11 @@ body {
   margin-top: 3px;
 }
 
-/* ── TRIAL CLASS BADGE ───────────────────────────────── */
+/* ── SPECIAL CLASS BADGES (PRUEBA / PREMIO) ─────────── */
 .trial-badge {
   font-size: 0.58rem;
   font-weight: 800;
-  background: rgba(255,255,255,0.35);
+  background: rgba(255,80,60,0.82);
   color: #fff;
   border-radius: 3px;
   padding: 1px 4px;
@@ -635,31 +635,38 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-.student-tag.is-trial { background: rgba(255,255,255,0.15); font-style: italic; }
+.award-badge {
+  font-size: 0.58rem;
+  font-weight: 800;
+  background: rgba(212,155,10,0.92);
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.student-tag.is-trial { background: rgba(255,80,60,0.18); font-style: italic; }
+.student-tag.is-award { background: rgba(212,155,10,0.18); }
 
-/* ── TRIAL FORM OPTION ───────────────────────────────── */
-.trial-row {
-  background: var(--blue-light);
-  border: 1.5px solid var(--blue-border);
-  border-radius: 8px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* ── PROF SLOT STATUS VARIANTS ───────────────────────── */
+.prof-slot-block.status-pending { opacity: 0.82; }
+.prof-slot-block.status-closed  { opacity: 0.55; }
+.prof-slot-status {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-bottom: 5px;
 }
-.trial-check-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  color: var(--blue);
-}
-.trial-check-label input[type="checkbox"] {
-  width: 16px; height: 16px; cursor: pointer; accent-color: var(--red);
-}
-#trial-date-wrap { display: none; }
+.prof-slot-status.pending { background: #e6960a; color: #fff; }
+.prof-slot-status.closed  { background: #7a8890; color: #fff; }
+
+/* ── SPECIAL DATE WRAP ───────────────────────────────── */
+#special-date-wrap { margin-top: 4px; }
 
 /* ── TOAST ───────────────────────────────────────────── */
 .toast-wrap {

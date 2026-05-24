@@ -30,6 +30,7 @@ for ($d = 1; $d <= 5; $d++) {
 }
 
 $totalSlots    = count($schedule);
+$activeSlots   = count(array_filter($schedule, fn($s) => ($s['slot_status'] ?? 'active') === 'active'));
 $totalStudents = array_sum(array_map(fn($s) => count($s['bookings']), $schedule));
 ?>
 <!DOCTYPE html>
@@ -48,7 +49,7 @@ $totalStudents = array_sum(array_map(fn($s) => count($s['bookings']), $schedule)
   <div class="page-title">
     <?= $currentProg ? $currentProg['icon'] . ' ' : '' ?>Por Profesor
   </div>
-  <div class="page-sub">Horario fijo semanal recurrente — los estudiantes aparecen automáticamente cada semana.</div>
+  <div class="page-sub">Vista de horarios por profesor — incluye grupos activos, pendientes y cerrados.</div>
 
   <!-- Professor selector -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
@@ -67,8 +68,8 @@ $totalStudents = array_sum(array_map(fn($s) => count($s['bookings']), $schedule)
   <!-- Stats -->
   <div class="stat-row">
     <div class="stat-card">
-      <div class="stat-num"><?= $totalSlots ?></div>
-      <div class="stat-label">Grupos activos</div>
+      <div class="stat-num"><?= $activeSlots ?> <span style="font-size:1rem;color:var(--text-muted)">/ <?= $totalSlots ?></span></div>
+      <div class="stat-label">Grupos activos / total</div>
     </div>
     <div class="stat-card">
       <div class="stat-num"><?= $totalStudents ?></div>
@@ -93,19 +94,23 @@ $totalStudents = array_sum(array_map(fn($s) => count($s['bookings']), $schedule)
         </div>
       <?php else: ?>
         <?php foreach ($byDay[$d] as $slot):
-              $booked = count($slot['bookings']); $max = $slot['max_students']; ?>
-        <div class="prof-slot-block"
-             style="border-left-color:<?= htmlspecialchars($selectedProf['color_hex']) ?>">
+              $booked = count($slot['bookings']); $max = $slot['max_students'];
+              $st = $slot['slot_status'] ?? 'active';
+              $stClass = $st !== 'active' ? 'status-' . $st : '';
+              $stLabels = ['pending' => 'Pendiente', 'closed' => 'Cerrado'];
+      ?>
+        <div class="prof-slot-block <?= $stClass ?>"
+             style="border-left-color:<?= $st === 'active' ? htmlspecialchars($selectedProf['color_hex']) : ($st === 'pending' ? '#e6960a' : '#9eabb0') ?>">
+          <?php if (isset($stLabels[$st])): ?>
+            <span class="prof-slot-status <?= $st ?>"><?= $stLabels[$st] ?></span>
+          <?php endif; ?>
           <div class="prof-slot-time">
             <?= formatTime($slot['start_time']) ?> – <?= formatTime($slot['end_time']) ?>
           </div>
           <div class="prof-slot-name"><?= htmlspecialchars($slot['class_name'] ?: '—') ?></div>
           <div style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
             <span style="font-size:0.68rem;color:var(--text-muted);font-weight:700"><?= $booked ?>/<?= $max ?></span>
-            <?php if ($slot['class_type']): ?>
-              <span class="badge"><?= htmlspecialchars($slot['class_type']) ?></span>
-            <?php endif; ?>
-            <?php if ($booked >= $max): ?>
+            <?php if ($booked >= $max && $st === 'active'): ?>
               <span class="badge red">LLENO</span>
             <?php endif; ?>
           </div>

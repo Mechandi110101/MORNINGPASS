@@ -66,17 +66,19 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
             e.notes         AS booking_notes,
             e.is_trial,
             e.trial_date,
+            e.is_award,
+            e.award_date,
             s.name          AS student_name
         FROM time_slots ts
         JOIN professors p ON p.id = ts.professor_id AND p.active = 1
-        -- Permanent enrollments only for active groups; trial always needs a matching date
         LEFT JOIN enrollments e ON e.time_slot_id = ts.id
             AND e.status = 'active'
-            AND ts.slot_status = 'active'
             AND (
-                (e.is_trial = 0)
+                (e.is_trial = 0 AND e.is_award = 0)
                 OR
                 (e.is_trial = 1 AND e.trial_date BETWEEN :week_start2 AND :week_end2)
+                OR
+                (e.is_award = 1 AND e.award_date BETWEEN :week_start3 AND :week_end3)
             )
         LEFT JOIN students s ON s.id = e.student_id AND s.active = 1
         WHERE ts.active     = 1
@@ -91,6 +93,8 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
         ':week_end'   => $weekEnd,
         ':week_start2'=> $weekStart,
         ':week_end2'  => $weekEnd,
+        ':week_start3'=> $weekStart,
+        ':week_end3'  => $weekEnd,
     ]);
     $rows = $stmt->fetchAll();
 
@@ -127,6 +131,8 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
                 'notes'        => $row['booking_notes'],
                 'is_trial'     => (bool)$row['is_trial'],
                 'trial_date'   => $row['trial_date'],
+                'is_award'     => (bool)$row['is_award'],
+                'award_date'   => $row['award_date'],
             ];
         }
     }
@@ -150,10 +156,12 @@ function getEnrollmentsForProfessor(int $professorId, int $programId = 1): array
             e.status,
             e.is_trial,
             e.trial_date,
+            e.is_award,
+            e.award_date,
             e.notes         AS booking_notes,
             s.name          AS student_name
         FROM time_slots ts
-        LEFT JOIN enrollments e ON e.time_slot_id = ts.id AND e.status = 'active'
+        LEFT JOIN enrollments e ON e.time_slot_id = ts.id AND e.status = 'active' AND e.is_trial = 0 AND e.is_award = 0
         LEFT JOIN students    s ON s.id = e.student_id   AND s.active = 1
         WHERE ts.professor_id = :prof_id
           AND ts.program_id   = :program_id
@@ -187,6 +195,8 @@ function getEnrollmentsForProfessor(int $professorId, int $programId = 1): array
                 'status'       => $row['status'],
                 'is_trial'     => (bool)$row['is_trial'],
                 'trial_date'   => $row['trial_date'],
+                'is_award'     => (bool)$row['is_award'],
+                'award_date'   => $row['award_date'],
                 'notes'        => $row['booking_notes'],
             ];
         }

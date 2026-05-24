@@ -7,8 +7,6 @@ $professors     = getProfessors();
 $db             = getDB();
 
 $dayNames   = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes'];
-$classTypes = ['', 'CAT', 'STA', 'MIXTO', 'FEM', 'MASC'];
-
 $currentProg = null;
 foreach ($programs as $pg) {
     if ($pg['id'] == $currentProgram) { $currentProg = $pg; break; }
@@ -81,14 +79,6 @@ $slots = $slots->fetchAll();
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Tipo de clase</label>
-        <select id="new-classtype" class="select-field">
-          <?php foreach ($classTypes as $ct): ?>
-            <option value="<?= $ct ?>"><?= $ct ?: '— ninguno —' ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <div class="form-group">
         <label class="form-label">Hora inicio *</label>
         <input type="time" id="new-start" class="input-field" value="07:00">
       </div>
@@ -133,7 +123,6 @@ $slots = $slots->fetchAll();
           <th>Hora</th>
           <th>Profesor</th>
           <th>Clase</th>
-          <th>Tipo</th>
           <th>Inscritos</th>
           <th>Inicio grupo</th>
           <th>Fin grupo</th>
@@ -154,7 +143,6 @@ $slots = $slots->fetchAll();
             </span>
           </td>
           <td><?= htmlspecialchars($slot['class_name']) ?></td>
-          <td><?php if ($slot['class_type']): ?><span class="badge"><?= htmlspecialchars($slot['class_type']) ?></span><?php endif; ?></td>
           <td>
             <span style="font-weight:700;color:<?= $slot['enrolled'] >= $slot['max_students'] ? 'var(--red)' : 'var(--success)' ?>">
               <?= $slot['enrolled'] ?>/<?= $slot['max_students'] ?>
@@ -180,7 +168,7 @@ $slots = $slots->fetchAll();
         </tr>
         <?php endforeach; ?>
         <?php if (empty($slots)): ?>
-        <tr><td colspan="9" class="empty-state">No hay horarios en este programa. Agrega el primero arriba.</td></tr>
+        <tr><td colspan="8" class="empty-state">No hay horarios en este programa. Agrega el primero arriba.</td></tr>
         <?php endif; ?>
       </tbody>
     </table>
@@ -199,7 +187,6 @@ document.getElementById('btn-add-slot').addEventListener('click', async () => {
     start_time:   document.getElementById('new-start').value,
     end_time:     document.getElementById('new-end').value,
     class_name:   document.getElementById('new-classname').value.trim(),
-    class_type:   document.getElementById('new-classtype').value,
     max_students: parseInt(document.getElementById('new-max').value) || 4,
     start_date:   document.getElementById('new-startdate').value || null,
     end_date:     document.getElementById('new-enddate').value   || null,
