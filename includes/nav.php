@@ -57,31 +57,4 @@ $navPages = [
     <!-- Dark mode toggle -->
     <button id="dark-toggle" class="dark-toggle" title="Cambiar tema">🌙</button>
   </nav>
-
-  <!-- Hamburger (mobile only) — outside .site-nav so it always shows -->
-  <button id="hamburger-btn" class="hamburger" aria-label="Menú" aria-expanded="false">☰</button>
-  <!-- Dark toggle duplicate for mobile (in header, outside hidden nav) -->
-  <button id="dark-toggle-mobile" class="dark-toggle dark-toggle-mobile" title="Cambiar tema">🌙</button>
 </header>
-
-<!-- Mobile nav drawer -->
-<div id="mobile-nav" class="mobile-nav" aria-hidden="true">
-  <div class="mobile-prog-tabs">
-    <?php foreach ($programs as $pid => $prog): ?>
-      <a href="<?= $basePath ?>index.php?p=<?= $pid ?>"
-         class="mobile-prog-tab <?= $pid === $currentProgram ? 'active' : '' ?>"
-         style="--prog-color:<?= $prog['color'] ?>">
-        <?= $prog['icon'] ?> <?= $prog['name'] ?>
-      </a>
-    <?php endforeach; ?>
-  </div>
-  <div class="mobile-nav-divider"></div>
-  <?php foreach ($navPages as $file => $label):
-      $href     = $basePath . $file . '?p=' . $currentProgram;
-      $isActive = ($currentPage === basename($file))
-           || ($currentPage === 'slots.php'      && $file === 'admin/slots.php')
-           || ($currentPage === 'professors.php'  && $file === 'admin/professors.php');
-  ?>
-    <a href="<?= $href ?>" class="<?= $isActive ? 'active' : '' ?>"><?= $label ?></a>
-  <?php endforeach; ?>
-</div>

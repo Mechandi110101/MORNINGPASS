@@ -720,77 +720,6 @@ body {
   margin-left: 4px; flex-shrink: 0;
 }
 .dark-toggle:hover { background: rgba(255,255,255,0.22); }
-.dark-toggle-mobile {
-  display: none;
-  margin-left: 0;
-  margin-right: 6px;
-}
-
-/* ── HAMBURGER + MOBILE NAV ──────────────────────────── */
-.hamburger {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.1);
-  border: none;
-  border-radius: 6px;
-  padding: 7px 11px;
-  cursor: pointer;
-  font-size: 1.15rem;
-  color: #fff;
-  transition: background 0.15s;
-  margin-left: auto;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-.hamburger:hover { background: rgba(255,255,255,0.22); }
-
-.mobile-nav {
-  display: none;
-  position: fixed;
-  top: 56px; left: 0; right: 0;
-  background: var(--blue);
-  border-bottom: 2px solid rgba(255,255,255,0.1);
-  box-shadow: var(--shadow-lg);
-  z-index: 99;
-  padding: 12px;
-  flex-direction: column;
-  gap: 3px;
-  max-height: calc(100vh - 56px);
-  overflow-y: auto;
-}
-.mobile-nav.open { display: flex; }
-.mobile-nav a {
-  padding: 10px 14px;
-  color: rgba(255,255,255,0.8);
-  text-decoration: none;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  transition: background 0.15s, color 0.15s;
-}
-.mobile-nav a:hover  { background: rgba(255,255,255,0.1); color: #fff; }
-.mobile-nav a.active { background: rgba(255,255,255,0.15); color: #fff; }
-.mobile-nav-divider  { height: 1px; background: rgba(255,255,255,0.12); margin: 6px 0; }
-.mobile-prog-tabs    { display: flex; gap: 6px; flex-wrap: wrap; padding: 2px 0 6px; }
-.mobile-prog-tab {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 13px;
-  border-radius: 20px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: rgba(255,255,255,0.7);
-  text-decoration: none;
-  border: 2px solid rgba(255,255,255,0.15);
-  transition: border-color 0.15s, color 0.15s;
-}
-.mobile-prog-tab.active {
-  color: #fff;
-  border-color: var(--prog-color, var(--red));
-  background: rgba(255,255,255,0.07);
-}
 
 /* ── SCHEDULE TOOLBAR (prof filter + inline search) ── */
 .schedule-toolbar {
@@ -810,19 +739,27 @@ body {
   flex-shrink: 0;
 }
 .schedule-search-input {
-  background: var(--white);
+  background: rgba(39,57,63,0.07);
   border: 1.5px solid var(--blue-border);
-  border-radius: 8px;
+  border-radius: 20px;
   color: var(--text);
-  font-size: 0.82rem;
-  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 14px 6px 32px;
   width: 185px;
   outline: none;
-  transition: border-color 0.15s, width 0.2s;
+  transition: border-color 0.15s, width 0.2s, background 0.15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 11px center;
+}
+.schedule-search-input::placeholder { color: var(--text-muted); font-weight: 500; }
+.schedule-search-input:focus {
+  border-color: var(--blue);
+  background-color: var(--white);
+  width: 220px;
   box-shadow: var(--shadow);
 }
-.schedule-search-input::placeholder { color: var(--text-muted); }
-.schedule-search-input:focus { border-color: var(--blue); width: 220px; }
 
 /* ── NAV SEARCH DROPDOWN (shared by inline search) ──── */
 .nav-search-dropdown {
@@ -936,8 +873,7 @@ body {
 [data-theme="dark"] .modal-header { border-color: var(--blue-border); }
 [data-theme="dark"] .student-card { background: var(--white); }
 [data-theme="dark"] .prof-admin-card { background: var(--white); border-color: var(--blue-border); }
-[data-theme="dark"] .nav-search-input  { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); }
-[data-theme="dark"] .hamburger { background: rgba(255,255,255,0.08); }
+[data-theme="dark"] .nav-search-input { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); }
 [data-theme="dark"] .nav-search-dropdown { background: #1c2d36; border-color: #2d4455; }
 [data-theme="dark"] .nsd-item { border-color: #2d4455; }
 [data-theme="dark"] .today-slot-card { background: var(--white); border-color: var(--blue-border); }
@@ -946,86 +882,21 @@ body {
 [data-theme="dark"] .site-header { background: #111e27; }
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
-
-/* Tablet (≤ 900px) */
 @media (max-width: 900px) {
   .program-tabs { display: none; }
   .form-grid { grid-template-columns: 1fr; }
-  .prof-schedule-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat-row { gap: 8px; }
-  .stat-card { min-width: 100px; }
+  .prof-schedule-grid { grid-template-columns: 1fr; }
 }
-
-/* Mobile (≤ 768px): hamburger nav */
-@media (max-width: 768px) {
-  .hamburger        { display: flex; }
-  .dark-toggle-mobile { display: flex; }
-  .site-nav         { display: none; }
-  .program-tabs     { display: none; }
-  .site-header      { padding-right: 0; }
-  .header-brand     { border-right: none; flex: 1; }
-}
-
-/* Small mobile (≤ 600px) */
 @media (max-width: 600px) {
   .page { padding: 12px; }
-
-  /* Week nav wraps and fills width */
-  .week-nav {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 10px;
-  }
-  .week-nav .week-label { min-width: 0; width: 100%; text-align: center; order: -1; }
-
-  /* Schedule toolbar stacks vertically */
-  .schedule-toolbar { flex-direction: column; align-items: stretch; }
-  .schedule-search  { width: 100%; }
-  .schedule-search-input { width: 100% !important; }
-
-  /* Prof filter scrolls horizontally */
-  .prof-filter { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
-
-  /* Forms full width */
-  .form-card { max-width: 100% !important; flex: 1 1 100% !important; }
-  .form-grid  { grid-template-columns: 1fr; }
-
-  /* Students layout stacks */
-  div[style*="display:flex"][style*="flex-wrap:wrap"] {
-    flex-direction: column !important;
-  }
-
-  /* Prof schedule: single column */
-  .prof-schedule-grid { grid-template-columns: 1fr; }
-
-  /* Data table: allow horizontal scroll */
-  .scroll-x { -webkit-overflow-scrolling: touch; }
-
-  /* Stat cards: 2 per row */
-  .stat-row { gap: 8px; }
-  .stat-card { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
-
-  /* Modal: nearly full screen */
-  .modal-overlay { padding: 0; align-items: flex-end; }
-  .modal {
-    border-radius: 18px 18px 0 0;
-    max-height: 94vh;
-    max-width: 100%;
-  }
-
-  /* Toast: full width at bottom */
-  .toast-wrap { bottom: 0; right: 0; left: 0; padding: 0 12px 12px; }
-  .toast { text-align: center; }
-
-  /* Collapsible students: no side padding waste */
-  .students-collapse .collapse-body { padding: 10px; }
-  .students-grid { grid-template-columns: 1fr; }
+  .site-nav a { padding: 0 9px; font-size: 0.72rem; }
+  .week-nav { flex-wrap: wrap; }
 }
 
-/* Dark mode mobile nav */
-[data-theme="dark"] .mobile-nav  { background: #111e27; }
-[data-theme="dark"] .mobile-prog-tab { border-color: rgba(255,255,255,0.1); }
+/* Dark mode tweaks */
 [data-theme="dark"] .students-collapse { background: var(--white); border-color: var(--blue-border); }
-[data-theme="dark"] .schedule-search-input { background: var(--white); border-color: var(--blue-border); color: var(--text); }
+[data-theme="dark"] .schedule-search-input {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--blue-border);
+  color: var(--text);
+}
