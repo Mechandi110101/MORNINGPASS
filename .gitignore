@@ -1,4 +1,5 @@
 # Credenciales de producción — nunca subir
+includes/db.php
 includes/db.local.php
 .env
 
