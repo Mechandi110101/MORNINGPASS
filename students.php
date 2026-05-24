@@ -77,55 +77,65 @@ $genderLabel = ['M' => 'Hombre', 'F' => 'Mujer', '' => ''];
       </button>
     </div>
 
-    <!-- Right column: search + grid -->
+    <!-- Right column: collapsible student list -->
     <div style="flex:1;min-width:280px">
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input type="text" id="search-students" class="input-field" placeholder="🔍  Buscar estudiante…" style="max-width:320px">
-      </div>
-
-      <div id="students-grid" class="students-grid">
-        <?php foreach ($students as $s):
-              $g = $s['gender'] ?? ''; ?>
-        <div class="student-card" data-id="<?= $s['id'] ?>" data-name="<?= htmlspecialchars($s['name']) ?>">
-          <div style="flex:1">
-            <div class="s-name"><?= htmlspecialchars($s['name']) ?></div>
-            <div class="s-meta">
-              <?php if ($g): ?>
-                <span class="badge gender-<?= $g ?>"><?= $genderLabel[$g] ?></span>
-              <?php endif; ?>
-              <?php if ($s['category']): ?>
-                <span class="badge"><?= htmlspecialchars($s['category']) ?></span>
-              <?php endif; ?>
-              <?php if ($s['phone']): ?>
-                <span class="badge" style="color:var(--text-muted)">📞 <?= htmlspecialchars($s['phone']) ?></span>
-              <?php endif; ?>
-              <?php
-                $ms = $s['membership_status'] ?? 'active';
-                $me = $s['membership_expires'] ?? null;
-                $meExpired = $me && $me < date('Y-m-d');
-                if ($ms === 'expired' || $meExpired):
-              ?><span class="badge red">Membresía vencida</span><?php
-                elseif ($ms === 'courtesy'):
-              ?><span class="badge">Cortesía</span><?php
-                elseif ($me):
-              ?><span class="badge green" style="font-size:0.67rem">✓ <?= date('d/m/Y', strtotime($me)) ?></span><?php
-                endif;
-              ?>
-              <?php if (!($s['active'] ?? 1)): ?>
-                <span class="badge red">Inactivo</span>
-              <?php endif; ?>
+      <details class="students-collapse" open>
+        <summary>
+          <span class="collapse-label">
+            <span class="collapse-icon">👥</span>
+            <span id="collapse-count"><?= count($students) ?> estudiante<?= count($students) != 1 ? 's' : '' ?> registrado<?= count($students) != 1 ? 's' : '' ?></span>
+          </span>
+          <span class="collapse-arrow">›</span>
+        </summary>
+        <div class="collapse-body">
+          <div style="margin-bottom:14px">
+            <input type="text" id="search-students" class="input-field" placeholder="🔍 Buscar estudiante…">
+          </div>
+          <div id="students-grid" class="students-grid">
+            <?php foreach ($students as $s):
+                  $g = $s['gender'] ?? ''; ?>
+            <div class="student-card" data-id="<?= $s['id'] ?>" data-name="<?= htmlspecialchars($s['name']) ?>">
+              <div style="flex:1">
+                <div class="s-name"><?= htmlspecialchars($s['name']) ?></div>
+                <div class="s-meta">
+                  <?php if ($g): ?>
+                    <span class="badge gender-<?= $g ?>"><?= $genderLabel[$g] ?></span>
+                  <?php endif; ?>
+                  <?php if ($s['category']): ?>
+                    <span class="badge"><?= htmlspecialchars($s['category']) ?></span>
+                  <?php endif; ?>
+                  <?php if ($s['phone']): ?>
+                    <span class="badge" style="color:var(--text-muted)">📞 <?= htmlspecialchars($s['phone']) ?></span>
+                  <?php endif; ?>
+                  <?php
+                    $ms = $s['membership_status'] ?? 'active';
+                    $me = $s['membership_expires'] ?? null;
+                    $meExpired = $me && $me < date('Y-m-d');
+                    if ($ms === 'expired' || $meExpired):
+                  ?><span class="badge red">Membresía vencida</span><?php
+                    elseif ($ms === 'courtesy'):
+                  ?><span class="badge">Cortesía</span><?php
+                    elseif ($me):
+                  ?><span class="badge green" style="font-size:0.67rem">✓ <?= date('d/m/Y', strtotime($me)) ?></span><?php
+                    endif;
+                  ?>
+                  <?php if (!($s['active'] ?? 1)): ?>
+                    <span class="badge red">Inactivo</span>
+                  <?php endif; ?>
+                </div>
+              </div>
+              <button class="btn-danger btn-del-student" title="Eliminar de base de datos">×</button>
             </div>
+            <?php endforeach; ?>
+            <?php if (empty($students)): ?>
+              <div class="empty-state" style="grid-column:1/-1">
+                No hay estudiantes registrados aún.<br>
+                <small>Agrégalos con el formulario de la izquierda.</small>
+              </div>
+            <?php endif; ?>
           </div>
-          <button class="btn-danger btn-del-student" title="Dar de baja">×</button>
         </div>
-        <?php endforeach; ?>
-        <?php if (empty($students)): ?>
-          <div class="empty-state" style="grid-column:1/-1">
-            No hay estudiantes en este programa aún.<br>
-            <small>Inscríbelos desde el horario semanal.</small>
-          </div>
-        <?php endif; ?>
-      </div>
+      </details>
     </div>
 
   </div>

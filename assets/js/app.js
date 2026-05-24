@@ -377,16 +377,21 @@ function populateSelect(sel, students, excludeIds = []) {
 
 // ── Dark mode ─────────────────────────────────────────
 function initDarkMode() {
-  const btn = document.getElementById('dark-toggle');
-  if (!btn) return;
+  const btns = [
+    document.getElementById('dark-toggle'),
+    document.getElementById('dark-toggle-mobile'),
+  ].filter(Boolean);
+  if (!btns.length) return;
   const apply = (theme) => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('morning-pass-theme', theme);
-    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-    btn.title = theme === 'dark' ? 'Modo claro' : 'Modo oscuro';
+    btns.forEach(b => {
+      b.textContent = theme === 'dark' ? '☀️' : '🌙';
+      b.title = theme === 'dark' ? 'Modo claro' : 'Modo oscuro';
+    });
   };
   apply(localStorage.getItem('morning-pass-theme') || 'light');
-  btn.onclick = () => apply(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  btns.forEach(b => b.onclick = () => apply(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
 }
 
 // ── Global search ─────────────────────────────────────
@@ -424,7 +429,7 @@ function initNavSearch() {
   });
 
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('#nav-search')) { drop.classList.add('hidden'); }
+    if (!e.target.closest('#schedule-search')) { drop.classList.add('hidden'); }
   });
 }
 
@@ -468,9 +473,30 @@ function initCopyList() {
   };
 }
 
+// ── Hamburger menu ────────────────────────────────────
+function initHamburger() {
+  const btn = document.getElementById('hamburger-btn');
+  const nav = document.getElementById('mobile-nav');
+  if (!btn || !nav) return;
+  btn.onclick = () => {
+    const open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open);
+    btn.textContent = open ? '✕' : '☰';
+    nav.setAttribute('aria-hidden', !open);
+  };
+  document.addEventListener('click', (e) => {
+    if (nav.classList.contains('open') && !e.target.closest('#mobile-nav') && !e.target.closest('#hamburger-btn')) {
+      nav.classList.remove('open');
+      btn.setAttribute('aria-expanded', false);
+      btn.textContent = '☰';
+    }
+  });
+}
+
 // ── Init ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
+  initHamburger();
   initNavSearch();
   initCopyList();
 
