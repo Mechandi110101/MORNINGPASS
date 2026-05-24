@@ -1,0 +1,21 @@
+# Credenciales de producción — nunca subir
+includes/db.local.php
+.env
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+/logs/
+
+# Dependencias (si se agregan en el futuro)
+/vendor/
+node_modules/
