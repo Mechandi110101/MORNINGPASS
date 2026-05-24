@@ -600,6 +600,67 @@ body {
 .stat-card .stat-num  { font-size: 1.8rem; font-weight: 800; color: var(--red); line-height: 1; }
 .stat-card .stat-label{ font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
 
+/* ── CLOSED / PENDING GROUP CARDS ───────────────────── */
+.slot-card.closed,
+.slot-card.pending {
+  background: #b0bec5 !important;
+  opacity: 0.75;
+  cursor: default;
+}
+.slot-card.closed:hover,
+.slot-card.pending:hover  { transform: none; box-shadow: none; }
+
+.slot-status-badge {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.18);
+  color: #fff;
+  margin-top: 3px;
+}
+
+/* ── TRIAL CLASS BADGE ───────────────────────────────── */
+.trial-badge {
+  font-size: 0.58rem;
+  font-weight: 800;
+  background: rgba(255,255,255,0.35);
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.student-tag.is-trial { background: rgba(255,255,255,0.15); font-style: italic; }
+
+/* ── TRIAL FORM OPTION ───────────────────────────────── */
+.trial-row {
+  background: var(--blue-light);
+  border: 1.5px solid var(--blue-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.trial-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--blue);
+}
+.trial-check-label input[type="checkbox"] {
+  width: 16px; height: 16px; cursor: pointer; accent-color: var(--red);
+}
+#trial-date-wrap { display: none; }
+
 /* ── TOAST ───────────────────────────────────────────── */
 .toast-wrap {
   position: fixed;

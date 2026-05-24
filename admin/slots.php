@@ -112,6 +112,14 @@ $slots = $slots->fetchAll();
         <label class="form-label">Máx. estudiantes</label>
         <input type="number" id="new-max" class="input-field" value="4" min="1" max="20">
       </div>
+      <div class="form-group">
+        <label class="form-label">Estado inicial del grupo</label>
+        <select id="new-slot-status" class="select-field">
+          <option value="active">✅ Activo — acepta inscripciones</option>
+          <option value="pending">⏳ Pendiente — grupo en planificación</option>
+          <option value="closed">🔒 Cerrado — no acepta inscripciones</option>
+        </select>
+      </div>
     </div>
     <button class="btn-primary" id="btn-add-slot" style="margin-top:14px">Agregar horario</button>
   </div>
@@ -155,7 +163,19 @@ $slots = $slots->fetchAll();
           <td style="font-size:0.78rem"><?= $slot['start_date'] ? date('d/m/Y', strtotime($slot['start_date'])) : '—' ?></td>
           <td style="font-size:0.78rem"><?= $slot['end_date']   ? date('d/m/Y', strtotime($slot['end_date']))   : '∞' ?></td>
           <td>
-            <button class="btn-danger btn-del-slot" data-id="<?= $slot['id'] ?>">Eliminar</button>
+            <?php $st = $slot['slot_status'] ?? 'active'; ?>
+            <?php if ($st !== 'active'): ?>
+              <button class="btn-primary btn-activate-slot" data-id="<?= $slot['id'] ?>"
+                      style="font-size:0.72rem;padding:5px 10px;margin-right:4px">
+                ▶ Activar
+              </button>
+            <?php else: ?>
+              <button class="btn-secondary btn-close-slot" data-id="<?= $slot['id'] ?>"
+                      style="font-size:0.72rem;padding:5px 10px;margin-right:4px">
+                🔒 Cerrar
+              </button>
+            <?php endif; ?>
+            <button class="btn-danger btn-del-slot" data-id="<?= $slot['id'] ?>">×</button>
           </td>
         </tr>
         <?php endforeach; ?>
@@ -183,6 +203,7 @@ document.getElementById('btn-add-slot').addEventListener('click', async () => {
     max_students: parseInt(document.getElementById('new-max').value) || 4,
     start_date:   document.getElementById('new-startdate').value || null,
     end_date:     document.getElementById('new-enddate').value   || null,
+    slot_status:  document.getElementById('new-slot-status').value,
   };
   try {
     await api('../api/slots.php', 'POST', body);
@@ -198,6 +219,29 @@ document.querySelectorAll('.btn-del-slot').forEach(btn => {
       await api('../api/slots.php', 'DELETE', { slot_id: parseInt(btn.dataset.id) });
       document.getElementById('slot-row-' + btn.dataset.id)?.remove();
       toast('Horario eliminado');
+    } catch (e) { toast(e.message, 'error'); }
+  });
+});
+
+// Activate group
+document.querySelectorAll('.btn-activate-slot').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    try {
+      await api('../api/slots.php', 'PUT', { slot_id: parseInt(btn.dataset.id), action: 'activate' });
+      toast('Grupo activado ✅', 'success');
+      setTimeout(() => location.reload(), 500);
+    } catch (e) { toast(e.message, 'error'); }
+  });
+});
+
+// Close group
+document.querySelectorAll('.btn-close-slot').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!confirm('¿Cerrar este grupo? Los estudiantes inscritos se mantendrán pero no se podrán agregar más.')) return;
+    try {
+      await api('../api/slots.php', 'PUT', { slot_id: parseInt(btn.dataset.id), action: 'close' });
+      toast('Grupo cerrado 🔒');
+      setTimeout(() => location.reload(), 500);
     } catch (e) { toast(e.message, 'error'); }
   });
 });

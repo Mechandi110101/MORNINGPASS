@@ -14,15 +14,16 @@ $programs = [
 ];
 
 $navPages = [
-    'index.php'          => 'Horario',
-    'professor.php'      => 'Por Profesor',
-    'students.php'       => 'Estudiantes',
-    'admin/slots.php'    => 'Admin Horarios',
+    'index.php'           => 'Horario',
+    'professor.php'       => 'Por Profesor',
+    'students.php'        => 'Estudiantes',
+    'admin/slots.php'     => 'Admin Horarios',
+    'admin/professors.php'=> 'Profesores',
 ];
 ?>
 <header class="site-header">
   <div class="header-brand">
-    <span class="brand-icon">⚽</span>
+    <span class="brand-icon">🎾</span>
     <span class="brand-name">Morning Pass</span>
   </div>
 
@@ -39,7 +40,9 @@ $navPages = [
   <nav class="site-nav">
     <?php foreach ($navPages as $file => $label):
         $href     = $basePath . $file . '?p=' . $currentProgram;
-        $isActive = ($currentPage === basename($file)) || ($currentPage === 'slots.php' && $file === 'admin/slots.php');
+        $isActive = ($currentPage === basename($file))
+             || ($currentPage === 'slots.php'      && $file === 'admin/slots.php')
+             || ($currentPage === 'professors.php'  && $file === 'admin/professors.php');
     ?>
       <a href="<?= $href ?>" class="<?= $isActive ? 'active' : '' ?>"><?= $label ?></a>
     <?php endforeach; ?>

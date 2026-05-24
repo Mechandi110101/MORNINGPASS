@@ -11,12 +11,11 @@ function getProfessors(): array {
 function getStudents(int $programId = 0): array {
     $db = getDB();
     if ($programId > 0) {
-        // Students enrolled in at least one slot of this program
         $stmt = $db->prepare("
             SELECT DISTINCT s.*
             FROM students s
-            JOIN enrollments e  ON e.student_id   = s.id  AND e.status = 'active'
-            JOIN time_slots ts  ON ts.id           = e.time_slot_id AND ts.active = 1
+            JOIN enrollments e  ON e.student_id   = s.id AND e.status = 'active'
+            JOIN time_slots ts  ON ts.id = e.time_slot_id AND ts.active = 1
             WHERE s.active = 1 AND ts.program_id = ?
             ORDER BY s.name
         ");
@@ -33,41 +32,53 @@ function getPrograms(): array {
 
 function getWeekStart(\DateTime $date = null): string {
     if (!$date) $date = new \DateTime();
-    $clone   = clone $date;
+    $clone     = clone $date;
     $dayOfWeek = (int)$clone->format('N');
     $clone->modify('-' . ($dayOfWeek - 1) . ' days');
     return $clone->format('Y-m-d');
 }
 
-// Returns weekly schedule using ENROLLMENTS (permanent/recurring model)
+// Weekly schedule — uses ENROLLMENTS (permanent) and respects group status + trial classes
 function getScheduleForWeek(string $weekStart, int $programId = 1): array {
     $db      = getDB();
     $weekEnd = date('Y-m-d', strtotime($weekStart . ' +6 days'));
 
     $stmt = $db->prepare("
         SELECT
-            ts.id          AS slot_id,
+            ts.id           AS slot_id,
             ts.day_of_week,
             ts.start_time,
             ts.end_time,
             ts.class_name,
             ts.class_type,
             ts.max_students,
-            ts.notes       AS slot_notes,
+            ts.notes        AS slot_notes,
             ts.start_date,
             ts.end_date,
-            p.id           AS professor_id,
-            p.name         AS professor_name,
+            ts.slot_status,
+            p.id            AS professor_id,
+            p.name          AS professor_name,
             p.color_hex,
-            e.id           AS booking_id,
+            p.photo         AS professor_photo,
+            e.id            AS booking_id,
             e.student_id,
-            e.status       AS booking_status,
-            e.notes        AS booking_notes,
-            s.name         AS student_name
+            e.status        AS booking_status,
+            e.notes         AS booking_notes,
+            e.is_trial,
+            e.trial_date,
+            s.name          AS student_name
         FROM time_slots ts
         JOIN professors p ON p.id = ts.professor_id AND p.active = 1
-        LEFT JOIN enrollments e ON e.time_slot_id = ts.id AND e.status = 'active'
-        LEFT JOIN students   s ON s.id = e.student_id   AND s.active = 1
+        -- Permanent enrollments only for active groups; trial always needs a matching date
+        LEFT JOIN enrollments e ON e.time_slot_id = ts.id
+            AND e.status = 'active'
+            AND ts.slot_status = 'active'
+            AND (
+                (e.is_trial = 0)
+                OR
+                (e.is_trial = 1 AND e.trial_date BETWEEN :week_start2 AND :week_end2)
+            )
+        LEFT JOIN students s ON s.id = e.student_id AND s.active = 1
         WHERE ts.active     = 1
           AND ts.program_id = :program_id
           AND (ts.start_date IS NULL OR ts.start_date <= :week_end)
@@ -78,6 +89,8 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
         ':program_id' => $programId,
         ':week_start' => $weekStart,
         ':week_end'   => $weekEnd,
+        ':week_start2'=> $weekStart,
+        ':week_end2'  => $weekEnd,
     ]);
     $rows = $stmt->fetchAll();
 
@@ -88,18 +101,20 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
 
         if (!isset($schedule[$day][$sid])) {
             $schedule[$day][$sid] = [
-                'slot_id'        => $sid,
-                'day_of_week'    => $day,
-                'start_time'     => $row['start_time'],
-                'end_time'       => $row['end_time'],
-                'class_name'     => $row['class_name'],
-                'class_type'     => $row['class_type'],
-                'max_students'   => $row['max_students'],
-                'slot_notes'     => $row['slot_notes'],
-                'professor_id'   => $row['professor_id'],
-                'professor_name' => $row['professor_name'],
-                'color_hex'      => $row['color_hex'],
-                'bookings'       => [],
+                'slot_id'          => $sid,
+                'day_of_week'      => $day,
+                'start_time'       => $row['start_time'],
+                'end_time'         => $row['end_time'],
+                'class_name'       => $row['class_name'],
+                'class_type'       => $row['class_type'],
+                'max_students'     => $row['max_students'],
+                'slot_notes'       => $row['slot_notes'],
+                'slot_status'      => $row['slot_status'],
+                'professor_id'     => $row['professor_id'],
+                'professor_name'   => $row['professor_name'],
+                'color_hex'        => $row['color_hex'],
+                'professor_photo'  => $row['professor_photo'],
+                'bookings'         => [],
             ];
         }
 
@@ -110,6 +125,8 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
                 'student_name' => $row['student_name'],
                 'status'       => $row['booking_status'],
                 'notes'        => $row['booking_notes'],
+                'is_trial'     => (bool)$row['is_trial'],
+                'trial_date'   => $row['trial_date'],
             ];
         }
     }
@@ -120,18 +137,21 @@ function getEnrollmentsForProfessor(int $professorId, int $programId = 1): array
     $db   = getDB();
     $stmt = $db->prepare("
         SELECT
-            ts.id          AS slot_id,
+            ts.id           AS slot_id,
             ts.day_of_week,
             ts.start_time,
             ts.end_time,
             ts.class_name,
             ts.class_type,
             ts.max_students,
-            e.id           AS booking_id,
+            ts.slot_status,
+            e.id            AS booking_id,
             e.student_id,
             e.status,
-            e.notes        AS booking_notes,
-            s.name         AS student_name
+            e.is_trial,
+            e.trial_date,
+            e.notes         AS booking_notes,
+            s.name          AS student_name
         FROM time_slots ts
         LEFT JOIN enrollments e ON e.time_slot_id = ts.id AND e.status = 'active'
         LEFT JOIN students    s ON s.id = e.student_id   AND s.active = 1
@@ -155,6 +175,7 @@ function getEnrollmentsForProfessor(int $professorId, int $programId = 1): array
                 'class_name'   => $row['class_name'],
                 'class_type'   => $row['class_type'],
                 'max_students' => $row['max_students'],
+                'slot_status'  => $row['slot_status'],
                 'bookings'     => [],
             ];
         }
@@ -164,6 +185,8 @@ function getEnrollmentsForProfessor(int $professorId, int $programId = 1): array
                 'student_id'   => $row['student_id'],
                 'student_name' => $row['student_name'],
                 'status'       => $row['status'],
+                'is_trial'     => (bool)$row['is_trial'],
+                'trial_date'   => $row['trial_date'],
                 'notes'        => $row['booking_notes'],
             ];
         }

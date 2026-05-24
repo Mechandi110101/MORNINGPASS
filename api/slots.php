@@ -10,7 +10,7 @@ if ($method === 'GET') {
     $profId    = isset($_GET['professor_id']) ? (int)$_GET['professor_id'] : null;
     $programId = isset($_GET['p'])            ? (int)$_GET['p']            : null;
 
-    $where = ['ts.active = 1'];
+    $where  = ['ts.active = 1'];
     $params = [];
     if ($profId)    { $where[] = 'ts.professor_id = ?'; $params[] = $profId;    }
     if ($programId) { $where[] = 'ts.program_id   = ?'; $params[] = $programId; }
@@ -34,21 +34,22 @@ if ($method === 'POST') {
     $stmt = $db->prepare("
         INSERT INTO time_slots
             (program_id, professor_id, day_of_week, start_time, end_time,
-             class_name, class_type, max_students, notes, start_date, end_date)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+             class_name, class_type, max_students, notes, start_date, end_date, slot_status)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     ");
     $stmt->execute([
-        (int)($input['program_id']   ?? 1),
+        (int)($input['program_id']    ?? 1),
         (int)$input['professor_id'],
         (int)$input['day_of_week'],
         $input['start_time'],
         $input['end_time'],
-        $input['class_name']   ?? '',
-        $input['class_type']   ?? '',
-        (int)($input['max_students'] ?? 4),
-        $input['notes']        ?? '',
-        $input['start_date']   ?: null,
-        $input['end_date']     ?: null,
+        $input['class_name']    ?? '',
+        $input['class_type']    ?? '',
+        (int)($input['max_students']  ?? 4),
+        $input['notes']         ?? '',
+        $input['start_date']    ?: null,
+        $input['end_date']      ?: null,
+        $input['slot_status']   ?? 'active',
     ]);
     jsonResponse(['ok' => true, 'slot_id' => (int)$db->lastInsertId()]);
 }
@@ -56,26 +57,35 @@ if ($method === 'POST') {
 if ($method === 'PUT') {
     $slotId = (int)($input['slot_id'] ?? 0);
     if (!$slotId) jsonResponse(['ok' => false, 'error' => 'slot_id requerido'], 400);
+
+    // Special action: activate / close group
+    if (isset($input['action'])) {
+        $newStatus = $input['action'] === 'activate' ? 'active' : 'closed';
+        $db->prepare("UPDATE time_slots SET slot_status = ? WHERE id = ?")->execute([$newStatus, $slotId]);
+        jsonResponse(['ok' => true, 'slot_status' => $newStatus]);
+    }
+
     $stmt = $db->prepare("
         UPDATE time_slots SET
             program_id   = ?, professor_id = ?, day_of_week  = ?,
             start_time   = ?, end_time     = ?, class_name   = ?,
             class_type   = ?, max_students = ?, notes        = ?,
-            start_date   = ?, end_date     = ?
+            start_date   = ?, end_date     = ?, slot_status  = ?
         WHERE id = ?
     ");
     $stmt->execute([
-        (int)($input['program_id']   ?? 1),
+        (int)($input['program_id']    ?? 1),
         (int)$input['professor_id'],
         (int)$input['day_of_week'],
         $input['start_time'],
         $input['end_time'],
-        $input['class_name']   ?? '',
-        $input['class_type']   ?? '',
-        (int)($input['max_students'] ?? 4),
-        $input['notes']        ?? '',
-        $input['start_date']   ?: null,
-        $input['end_date']     ?: null,
+        $input['class_name']    ?? '',
+        $input['class_type']    ?? '',
+        (int)($input['max_students']  ?? 4),
+        $input['notes']         ?? '',
+        $input['start_date']    ?: null,
+        $input['end_date']      ?: null,
+        $input['slot_status']   ?? 'active',
         $slotId,
     ]);
     jsonResponse(['ok' => true]);

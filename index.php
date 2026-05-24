@@ -79,6 +79,17 @@ foreach ($programs as $pg) {
             <option value="">— Seleccionar estudiante —</option>
           </select>
         </div>
+        <!-- Trial class option -->
+        <div class="trial-row">
+          <label class="trial-check-label">
+            <input type="checkbox" id="is-trial-check">
+            Clase de prueba (solo esta fecha, no recurrente)
+          </label>
+          <div id="trial-date-wrap">
+            <label class="form-label">Fecha de la clase de prueba</label>
+            <input type="date" id="trial-date-input" class="input-field">
+          </div>
+        </div>
         <button type="submit" class="btn-primary">Inscribir estudiante</button>
       </form>
 
