@@ -1,40 +1,36 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
+$basePath       = '';
+$currentProgram = (int)($_GET['p']  ?? 1);
+$selectedId     = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 $professors = getProfessors();
-$selectedId = isset($_GET['id']) ? (int)$_GET['id'] : ($professors[0]['id'] ?? 0);
-$weekStart  = isset($_GET['week']) ? $_GET['week'] : getWeekStart();
-
-// Validate / normalize week to Monday
-$dt = new DateTime($weekStart);
-$wd = (int)$dt->format('N');
-$dt->modify('-' . ($wd - 1) . ' days');
-$weekStart = $dt->format('Y-m-d');
-
-$prevWeek = (clone $dt)->modify('-7 days')->format('Y-m-d');
-$nextWeek = (clone $dt)->modify('+7 days')->format('Y-m-d');
-$weekEnd  = (clone $dt)->modify('+4 days')->format('Y-m-d');
+$programs   = getPrograms();
+if (!$selectedId && $professors) $selectedId = $professors[0]['id'];
 
 $dayNames = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes'];
 
-$schedule = [];
+$schedule    = $selectedId ? getEnrollmentsForProfessor($selectedId, $currentProgram) : [];
 $selectedProf = null;
-if ($selectedId) {
-    $schedule     = getBookingsForProfessor($selectedId, $weekStart);
-    foreach ($professors as $p) {
-        if ($p['id'] == $selectedId) { $selectedProf = $p; break; }
-    }
+foreach ($professors as $p) {
+    if ($p['id'] == $selectedId) { $selectedProf = $p; break; }
+}
+
+$currentProg = null;
+foreach ($programs as $pg) {
+    if ($pg['id'] == $currentProgram) { $currentProg = $pg; break; }
 }
 
 // Group by day
 $byDay = [];
-foreach ($schedule as $slot) {
-    $byDay[$slot['day_of_week']][] = $slot;
-}
+foreach ($schedule as $slot) { $byDay[$slot['day_of_week']][] = $slot; }
 for ($d = 1; $d <= 5; $d++) {
     if (!isset($byDay[$d])) $byDay[$d] = [];
     usort($byDay[$d], fn($a, $b) => strcmp($a['start_time'], $b['start_time']));
 }
+
+$totalSlots    = count($schedule);
+$totalStudents = array_sum(array_map(fn($s) => count($s['bookings']), $schedule));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -46,91 +42,83 @@ for ($d = 1; $d <= 5; $d++) {
 </head>
 <body>
 
-<header class="site-header">
-  <h1>🎓 Morning Pass</h1>
-  <nav>
-    <a href="index.php">Horario Semanal</a>
-    <a href="professor.php" class="active">Por Profesor</a>
-    <a href="students.php">Estudiantes</a>
-    <a href="admin/slots.php">Admin Horarios</a>
-  </nav>
-</header>
+<?php include __DIR__ . '/includes/nav.php'; ?>
 
 <div class="page">
-  <div class="page-title">Horario por Profesor</div>
+  <div class="page-title">
+    <?= $currentProg ? $currentProg['icon'] . ' ' : '' ?>Por Profesor
+  </div>
+  <div class="page-sub">Horario fijo semanal recurrente — los estudiantes aparecen automáticamente cada semana.</div>
 
   <!-- Professor selector -->
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <span style="font-size:0.78rem;color:var(--text-muted);font-weight:700;margin-right:4px">PROFESOR:</span>
     <?php foreach ($professors as $p): ?>
-      <a href="professor.php?id=<?= $p['id'] ?>&week=<?= $weekStart ?>"
+      <a href="professor.php?id=<?= $p['id'] ?>&p=<?= $currentProgram ?>"
          class="prof-chip<?= ($p['id'] == $selectedId ? '' : ' inactive') ?>"
-         style="background:<?= htmlspecialchars($p['color_hex']) ?>;text-decoration:none">
+         style="background:<?= htmlspecialchars($p['color_hex']) ?>">
         <?= htmlspecialchars($p['name']) ?>
       </a>
     <?php endforeach; ?>
   </div>
 
-  <!-- Week navigation -->
-  <div class="week-nav" style="margin-bottom:20px">
-    <a href="professor.php?id=<?= $selectedId ?>&week=<?= $prevWeek ?>" style="text-decoration:none">
-      <button>&#8592; Anterior</button>
-    </a>
-    <span class="week-label">
-      Semana: <?= date('d/m/Y', strtotime($weekStart)) ?> – <?= date('d/m/Y', strtotime($weekEnd)) ?>
-    </span>
-    <a href="professor.php?id=<?= $selectedId ?>&week=<?= getWeekStart() ?>" style="text-decoration:none">
-      <button>Hoy</button>
-    </a>
-    <a href="professor.php?id=<?= $selectedId ?>&week=<?= $nextWeek ?>" style="text-decoration:none">
-      <button>Siguiente &#8594;</button>
-    </a>
-  </div>
-
   <?php if ($selectedProf): ?>
-  <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px">
-    <div style="width:14px;height:14px;border-radius:50%;background:<?= htmlspecialchars($selectedProf['color_hex']) ?>"></div>
-    <span style="font-weight:700;font-size:1.1rem"><?= htmlspecialchars($selectedProf['name']) ?></span>
-    <span style="color:var(--text-muted);font-size:0.85rem">
-      <?= count($schedule) ?> bloque(s) esta semana
-    </span>
+
+  <!-- Stats -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-num"><?= $totalSlots ?></div>
+      <div class="stat-label">Grupos activos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num"><?= $totalStudents ?></div>
+      <div class="stat-label">Estudiantes inscritos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" style="color:var(--blue)"><?= htmlspecialchars($selectedProf['name']) ?></div>
+      <div class="stat-label">Profesor seleccionado</div>
+    </div>
   </div>
 
+  <!-- Weekly grid -->
   <div class="prof-schedule-grid">
     <?php for ($d = 1; $d <= 5; $d++): ?>
     <div class="prof-day-col">
-      <h3><?= $dayNames[$d] ?><br>
-          <small style="font-weight:400;opacity:0.8">
-            <?= date('d/m', strtotime($weekStart . ' +' . ($d - 1) . ' days')) ?>
-          </small>
-      </h3>
+      <h3><?= $dayNames[$d] ?></h3>
+
       <?php if (empty($byDay[$d])): ?>
-        <div style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.8rem;background:var(--white);border:1px solid var(--beige-border);border-radius:4px;margin-top:2px">
-          Sin clases
+        <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.78rem;
+                    background:var(--white);border:1px solid var(--blue-border);margin-top:2px;border-radius:0 0 4px 4px">
+          Sin grupos
         </div>
       <?php else: ?>
-        <?php foreach ($byDay[$d] as $slot): ?>
-          <?php $booked = count($slot['bookings']); $max = $slot['max_students']; ?>
-          <div class="prof-slot-block" style="border-left:4px solid <?= htmlspecialchars($selectedProf['color_hex']) ?>">
-            <div class="prof-slot-time">
-              <?= formatTime($slot['start_time']) ?> – <?= formatTime($slot['end_time']) ?>
-            </div>
-            <div class="prof-slot-name"><?= htmlspecialchars($slot['class_name'] ?: '—') ?></div>
-            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:5px">
-              <?= $booked ?>/<?= $max ?> estudiantes
-              <?php if ($slot['class_type']): ?>
-                · <span style="background:var(--beige-dark);border-radius:3px;padding:1px 4px"><?= htmlspecialchars($slot['class_type']) ?></span>
-              <?php endif; ?>
-            </div>
-            <div class="prof-slot-students">
-              <?php if (empty($slot['bookings'])): ?>
-                <div style="color:var(--text-muted);font-style:italic;font-size:0.7rem">Sin estudiantes</div>
-              <?php else: ?>
-                <?php foreach ($slot['bookings'] as $b): ?>
-                  <div class="prof-student-name"><?= htmlspecialchars($b['student_name']) ?></div>
-                <?php endforeach; ?>
-              <?php endif; ?>
-            </div>
+        <?php foreach ($byDay[$d] as $slot):
+              $booked = count($slot['bookings']); $max = $slot['max_students']; ?>
+        <div class="prof-slot-block"
+             style="border-left-color:<?= htmlspecialchars($selectedProf['color_hex']) ?>">
+          <div class="prof-slot-time">
+            <?= formatTime($slot['start_time']) ?> – <?= formatTime($slot['end_time']) ?>
           </div>
+          <div class="prof-slot-name"><?= htmlspecialchars($slot['class_name'] ?: '—') ?></div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
+            <span style="font-size:0.68rem;color:var(--text-muted);font-weight:700"><?= $booked ?>/<?= $max ?></span>
+            <?php if ($slot['class_type']): ?>
+              <span class="badge"><?= htmlspecialchars($slot['class_type']) ?></span>
+            <?php endif; ?>
+            <?php if ($booked >= $max): ?>
+              <span class="badge red">LLENO</span>
+            <?php endif; ?>
+          </div>
+          <div class="prof-slot-students">
+            <?php if (empty($slot['bookings'])): ?>
+              <div style="color:var(--text-muted);font-style:italic;font-size:0.7rem">Sin inscripciones</div>
+            <?php else: ?>
+              <?php foreach ($slot['bookings'] as $b): ?>
+                <div class="prof-student-name"><?= htmlspecialchars($b['student_name']) ?></div>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
+        </div>
         <?php endforeach; ?>
       <?php endif; ?>
     </div>
@@ -138,7 +126,7 @@ for ($d = 1; $d <= 5; $d++) {
   </div>
 
   <?php else: ?>
-    <p style="color:var(--text-muted)">Selecciona un profesor para ver su horario.</p>
+    <div class="empty-state">Selecciona un profesor para ver su horario.</div>
   <?php endif; ?>
 </div>
 

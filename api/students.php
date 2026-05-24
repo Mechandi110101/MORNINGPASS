@@ -7,37 +7,63 @@ $input  = json_decode(file_get_contents('php://input'), true) ?? [];
 $db     = getDB();
 
 if ($method === 'GET') {
-    $search = trim($_GET['q'] ?? '');
-    if ($search) {
-        $stmt = $db->prepare("SELECT * FROM students WHERE active = 1 AND name LIKE ? ORDER BY name LIMIT 30");
-        $stmt->execute(['%' . $search . '%']);
-    } else {
-        $stmt = $db->query("SELECT * FROM students WHERE active = 1 ORDER BY name");
+    $search    = trim($_GET['q']  ?? '');
+    $programId = (int)($_GET['p'] ?? 0);
+
+    $where  = ['s.active = 1'];
+    $params = [];
+
+    if ($search)    { $where[] = 's.name LIKE ?'; $params[] = '%' . $search . '%'; }
+    if ($programId) {
+        $where[] = 'EXISTS (
+            SELECT 1 FROM enrollments e
+            JOIN time_slots ts ON ts.id = e.time_slot_id
+            WHERE e.student_id = s.id AND e.status = \'active\' AND ts.program_id = ?
+        )';
+        $params[] = $programId;
     }
+
+    $sql  = "SELECT * FROM students s WHERE " . implode(' AND ', $where) . " ORDER BY s.name" . ($search ? " LIMIT 40" : "");
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     jsonResponse(['ok' => true, 'students' => $stmt->fetchAll()]);
 }
 
 if ($method === 'POST') {
-    $name = trim($input['name'] ?? '');
-    if (!$name) jsonResponse(['ok' => false, 'error' => 'name is required'], 400);
-    $stmt = $db->prepare("INSERT INTO students (name) VALUES (?)");
-    $stmt->execute([strtoupper($name)]);
+    $name = strtoupper(trim($input['name'] ?? ''));
+    if (!$name) jsonResponse(['ok' => false, 'error' => 'name es requerido'], 400);
+
+    $stmt = $db->prepare("INSERT INTO students (name, gender, category, phone) VALUES (?,?,?,?)");
+    $stmt->execute([
+        $name,
+        $input['gender']   ?? '',
+        $input['category'] ?? '',
+        $input['phone']    ?? '',
+    ]);
     jsonResponse(['ok' => true, 'student_id' => (int)$db->lastInsertId()]);
 }
 
 if ($method === 'PUT') {
     $id   = (int)($input['id']   ?? 0);
-    $name = trim($input['name'] ?? '');
-    if (!$id || !$name) jsonResponse(['ok' => false, 'error' => 'id and name required'], 400);
-    $db->prepare("UPDATE students SET name = ? WHERE id = ?")->execute([strtoupper($name), $id]);
+    $name = strtoupper(trim($input['name'] ?? ''));
+    if (!$id || !$name) jsonResponse(['ok' => false, 'error' => 'id y name requeridos'], 400);
+
+    $stmt = $db->prepare("UPDATE students SET name=?, gender=?, category=?, phone=? WHERE id=?");
+    $stmt->execute([
+        $name,
+        $input['gender']   ?? '',
+        $input['category'] ?? '',
+        $input['phone']    ?? '',
+        $id,
+    ]);
     jsonResponse(['ok' => true]);
 }
 
 if ($method === 'DELETE') {
     $id = (int)($input['id'] ?? 0);
-    if (!$id) jsonResponse(['ok' => false, 'error' => 'id required'], 400);
+    if (!$id) jsonResponse(['ok' => false, 'error' => 'id requerido'], 400);
     $db->prepare("UPDATE students SET active = 0 WHERE id = ?")->execute([$id]);
     jsonResponse(['ok' => true]);
 }
 
-jsonResponse(['ok' => false, 'error' => 'Method not allowed'], 405);
+jsonResponse(['ok' => false, 'error' => 'Método no permitido'], 405);

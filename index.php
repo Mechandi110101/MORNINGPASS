@@ -1,43 +1,45 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
-$professors = getProfessors();
+$basePath       = '';
+$currentProgram = (int)($_GET['p'] ?? 1);
+$programs       = getPrograms();
+$professors     = getProfessors();
+
+$currentProg = null;
+foreach ($programs as $pg) {
+    if ($pg['id'] == $currentProgram) { $currentProg = $pg; break; }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Morning Pass – Horarios</title>
+  <title>Morning Pass – Horario</title>
   <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
-<header class="site-header">
-  <h1>🎓 Morning Pass</h1>
-  <nav>
-    <a href="index.php" class="active">Horario Semanal</a>
-    <a href="professor.php">Por Profesor</a>
-    <a href="students.php">Estudiantes</a>
-    <a href="admin/slots.php">Admin Horarios</a>
-  </nav>
-</header>
+<?php include __DIR__ . '/includes/nav.php'; ?>
 
 <div class="page">
-  <div class="page-title">Horario Semanal</div>
-  <div class="page-sub">Haz clic en un bloque para ver reservas o agregar estudiantes.</div>
+  <div class="page-title">
+    <?= $currentProg ? $currentProg['icon'] . ' ' . htmlspecialchars($currentProg['name']) : 'Horario' ?>
+  </div>
+  <div class="page-sub">Haz clic en un bloque para inscribir o quitar un estudiante del grupo.</div>
 
-  <!-- Week navigation -->
+  <!-- Week nav -->
   <div class="week-nav">
-    <button id="btn-prev-week">&#8592; Semana anterior</button>
+    <button id="btn-prev-week">&#8592; Anterior</button>
     <span class="week-label" id="week-label">Cargando…</span>
     <button id="btn-today">Hoy</button>
-    <button id="btn-next-week">Siguiente semana &#8594;</button>
+    <button id="btn-next-week">Siguiente &#8594;</button>
   </div>
 
-  <!-- Professor filter chips -->
+  <!-- Professor filter -->
   <div id="prof-filter" class="prof-filter"></div>
 
-  <!-- Schedule grid -->
+  <!-- Schedule -->
   <div class="scroll-x">
     <div id="schedule-container">
       <p style="color:var(--text-muted);padding:20px">Cargando horarios…</p>
@@ -45,11 +47,11 @@ $professors = getProfessors();
   </div>
 </div>
 
-<!-- Booking Modal -->
+<!-- Enrollment Modal -->
 <div id="booking-modal" class="modal-overlay hidden">
   <div class="modal">
-    <div class="modal-header" id="modal-header-bar">
-      <h2 id="modal-title">Horario</h2>
+    <div class="modal-header">
+      <h2 id="modal-title">Grupo</h2>
       <button class="modal-close" id="modal-close">×</button>
     </div>
     <div class="modal-body">
@@ -63,27 +65,30 @@ $professors = getProfessors();
 
       <div class="capacity-bar"><div class="capacity-fill" id="capacity-fill" style="width:0%"></div></div>
 
-      <h3 style="font-size:0.85rem;color:var(--brown);margin-bottom:8px">Estudiantes reservados</h3>
+      <div class="modal-section-title">Estudiantes inscritos</div>
       <div id="modal-booking-list" class="booking-list"></div>
 
       <form id="add-booking-form" class="add-booking-form">
-        <div>
-          <label>Buscar estudiante</label>
-          <input type="text" id="student-search" class="input-search" placeholder="Escribir nombre…" autocomplete="off">
+        <div class="form-group">
+          <label class="form-label">Buscar estudiante</label>
+          <input type="text" id="student-search" class="input-field" placeholder="Escribir nombre…" autocomplete="off">
         </div>
-        <div>
-          <label>Seleccionar</label>
-          <select id="student-select" class="select-student">
+        <div class="form-group">
+          <label class="form-label">Seleccionar</label>
+          <select id="student-select" class="select-field">
             <option value="">— Seleccionar estudiante —</option>
           </select>
         </div>
-        <button type="submit" class="btn-primary">Agregar reserva</button>
+        <button type="submit" class="btn-primary">Inscribir estudiante</button>
       </form>
 
     </div>
   </div>
 </div>
 
+<script>
+const CURRENT_PROGRAM = <?= $currentProgram ?>;
+</script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

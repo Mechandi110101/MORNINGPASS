@@ -1,6 +1,16 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
-$students = getStudents();
+$basePath       = '';
+$currentProgram = (int)($_GET['p'] ?? 1);
+$programs       = getPrograms();
+$students       = getStudents($currentProgram);
+
+$currentProg = null;
+foreach ($programs as $pg) {
+    if ($pg['id'] == $currentProgram) { $currentProg = $pg; break; }
+}
+
+$genderLabel = ['M' => 'Hombre', 'F' => 'Mujer', '' => ''];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -12,84 +22,161 @@ $students = getStudents();
 </head>
 <body>
 
-<header class="site-header">
-  <h1>🎓 Morning Pass</h1>
-  <nav>
-    <a href="index.php">Horario Semanal</a>
-    <a href="professor.php">Por Profesor</a>
-    <a href="students.php" class="active">Estudiantes</a>
-    <a href="admin/slots.php">Admin Horarios</a>
-  </nav>
-</header>
+<?php include __DIR__ . '/includes/nav.php'; ?>
 
 <div class="page">
-  <div class="page-title">Estudiantes</div>
-  <div class="page-sub"><?= count($students) ?> estudiantes registrados</div>
-
-  <!-- Add student form -->
-  <div style="background:var(--white);border:1px solid var(--beige-border);border-radius:10px;padding:16px;max-width:400px;margin-bottom:20px;box-shadow:var(--shadow)">
-    <h3 style="font-size:0.9rem;color:var(--brown);margin-bottom:10px">Agregar nuevo estudiante</h3>
-    <div style="display:flex;gap:8px">
-      <input type="text" id="new-student-name" class="input-search" placeholder="Nombre completo" style="flex:1">
-      <button class="btn-primary" id="btn-add-student">Agregar</button>
-    </div>
+  <div class="page-title">
+    <?= $currentProg ? $currentProg['icon'] . ' ' : '' ?>Estudiantes
+  </div>
+  <div class="page-sub">
+    <?= count($students) ?> estudiante<?= count($students) != 1 ? 's' : '' ?> en
+    <?= $currentProg ? htmlspecialchars($currentProg['name']) : 'todos los programas' ?>
   </div>
 
-  <!-- Search -->
-  <div style="max-width:340px;margin-bottom:16px">
-    <input type="text" id="search-students" class="input-search" placeholder="Buscar estudiante…">
-  </div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
 
-  <!-- Grid -->
-  <div id="students-grid" class="students-grid">
-    <?php foreach ($students as $s): ?>
-    <div class="student-card" data-id="<?= $s['id'] ?>" data-name="<?= htmlspecialchars($s['name']) ?>">
-      <span><?= htmlspecialchars($s['name']) ?></span>
-      <button class="del-booking btn-del-student" title="Eliminar" style="color:var(--danger);background:none;border:none;cursor:pointer;font-size:1rem">×</button>
+    <!-- Add student form -->
+    <div class="form-card" style="max-width:400px;flex:0 0 400px">
+      <h3>Agregar estudiante</h3>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Nombre completo *</label>
+          <input type="text" id="new-name" class="input-field" placeholder="Ej: JUAN PÉREZ">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sexo</label>
+          <select id="new-gender" class="select-field">
+            <option value="">— —</option>
+            <option value="M">Hombre</option>
+            <option value="F">Mujer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <input type="text" id="new-category" class="input-field" placeholder="Ej: CAT 4TA">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Teléfono</label>
+          <input type="text" id="new-phone" class="input-field" placeholder="Ej: 8888-0000">
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-add-student" style="margin-top:12px;width:100%">
+        Agregar estudiante
+      </button>
     </div>
-    <?php endforeach; ?>
+
+    <!-- Right column: search + grid -->
+    <div style="flex:1;min-width:280px">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input type="text" id="search-students" class="input-field" placeholder="🔍  Buscar estudiante…" style="max-width:320px">
+      </div>
+
+      <div id="students-grid" class="students-grid">
+        <?php foreach ($students as $s):
+              $g = $s['gender'] ?? ''; ?>
+        <div class="student-card" data-id="<?= $s['id'] ?>" data-name="<?= htmlspecialchars($s['name']) ?>">
+          <div style="flex:1">
+            <div class="s-name"><?= htmlspecialchars($s['name']) ?></div>
+            <div class="s-meta">
+              <?php if ($g): ?>
+                <span class="badge gender-<?= $g ?>"><?= $genderLabel[$g] ?></span>
+              <?php endif; ?>
+              <?php if ($s['category']): ?>
+                <span class="badge"><?= htmlspecialchars($s['category']) ?></span>
+              <?php endif; ?>
+              <?php if ($s['phone']): ?>
+                <span class="badge" style="color:var(--text-muted)">📞 <?= htmlspecialchars($s['phone']) ?></span>
+              <?php endif; ?>
+              <?php if (!($s['active'] ?? 1)): ?>
+                <span class="badge red">Inactivo</span>
+              <?php endif; ?>
+            </div>
+          </div>
+          <button class="btn-danger btn-del-student" title="Dar de baja">×</button>
+        </div>
+        <?php endforeach; ?>
+        <?php if (empty($students)): ?>
+          <div class="empty-state" style="grid-column:1/-1">
+            No hay estudiantes en este programa aún.<br>
+            <small>Inscríbelos desde el horario semanal.</small>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script src="assets/js/app.js"></script>
 <script>
+const CURRENT_PROGRAM = <?= $currentProgram ?>;
+
 document.getElementById('btn-add-student').addEventListener('click', async () => {
-  const name = document.getElementById('new-student-name').value.trim();
-  if (!name) return;
+  const name = document.getElementById('new-name').value.trim();
+  if (!name) { toast('El nombre es requerido', 'error'); return; }
   try {
-    const res = await api('api/students.php', 'POST', { name });
+    const res = await api('api/students.php', 'POST', {
+      name,
+      gender:   document.getElementById('new-gender').value,
+      category: document.getElementById('new-category').value.trim(),
+      phone:    document.getElementById('new-phone').value.trim(),
+    });
     toast('Estudiante agregado', 'success');
-    const grid = document.getElementById('students-grid');
-    const card = document.createElement('div');
-    card.className = 'student-card';
-    card.dataset.id = res.student_id;
-    card.dataset.name = name.toUpperCase();
-    card.innerHTML = `<span>${name.toUpperCase()}</span><button class="btn-del-student" style="color:var(--danger);background:none;border:none;cursor:pointer;font-size:1rem">×</button>`;
-    grid.prepend(card);
-    document.getElementById('new-student-name').value = '';
-    attachDelete(card.querySelector('.btn-del-student'), card);
+    const card = buildStudentCard(res.student_id, name.toUpperCase(),
+      document.getElementById('new-gender').value,
+      document.getElementById('new-category').value.trim(),
+      document.getElementById('new-phone').value.trim()
+    );
+    document.getElementById('students-grid').prepend(card);
+    ['new-name','new-gender','new-category','new-phone'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    });
   } catch (e) { toast(e.message, 'error'); }
 });
 
+function buildStudentCard(id, name, gender, category, phone) {
+  const card = document.createElement('div');
+  card.className = 'student-card';
+  card.dataset.id   = id;
+  card.dataset.name = name;
+
+  const genderMap = { M: 'Hombre', F: 'Mujer', '': '' };
+  let badges = '';
+  if (gender)   badges += `<span class="badge gender-${gender}">${genderMap[gender] || ''}</span>`;
+  if (category) badges += `<span class="badge">${category}</span>`;
+  if (phone)    badges += `<span class="badge" style="color:var(--text-muted)">📞 ${phone}</span>`;
+
+  card.innerHTML = `
+    <div style="flex:1">
+      <div class="s-name">${name}</div>
+      <div class="s-meta">${badges}</div>
+    </div>
+    <button class="btn-danger btn-del-student" title="Dar de baja">×</button>
+  `;
+  attachDelete(card.querySelector('.btn-del-student'), card);
+  return card;
+}
+
 function attachDelete(btn, card) {
   btn.addEventListener('click', async () => {
-    if (!confirm(`¿Eliminar a ${card.dataset.name}?`)) return;
+    if (!confirm(`¿Dar de baja a ${card.dataset.name}?`)) return;
     try {
       await api('api/students.php', 'DELETE', { id: parseInt(card.dataset.id) });
       card.remove();
-      toast('Estudiante eliminado');
+      toast('Estudiante dado de baja');
     } catch (e) { toast(e.message, 'error'); }
   });
 }
-
 document.querySelectorAll('.btn-del-student').forEach(btn => {
   attachDelete(btn, btn.closest('.student-card'));
 });
 
 document.getElementById('search-students').addEventListener('input', function() {
   const q = this.value.toLowerCase();
-  document.querySelectorAll('.student-card').forEach(card => {
-    card.style.display = card.dataset.name.toLowerCase().includes(q) ? '' : 'none';
+  document.querySelectorAll('.student-card').forEach(c => {
+    c.style.display = c.dataset.name.toLowerCase().includes(q) ? '' : 'none';
   });
 });
 </script>

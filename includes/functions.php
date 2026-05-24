@@ -8,54 +8,83 @@ function getProfessors(): array {
     return $db->query("SELECT * FROM professors WHERE active = 1 ORDER BY name")->fetchAll();
 }
 
-function getStudents(): array {
+function getStudents(int $programId = 0): array {
     $db = getDB();
-    return $db->query("SELECT * FROM students WHERE active = 1 ORDER BY name")->fetchAll();
+    if ($programId > 0) {
+        // Students enrolled in at least one slot of this program
+        $stmt = $db->prepare("
+            SELECT DISTINCT s.*
+            FROM students s
+            JOIN enrollments e  ON e.student_id   = s.id  AND e.status = 'active'
+            JOIN time_slots ts  ON ts.id           = e.time_slot_id AND ts.active = 1
+            WHERE s.active = 1 AND ts.program_id = ?
+            ORDER BY s.name
+        ");
+        $stmt->execute([$programId]);
+    } else {
+        $stmt = $db->query("SELECT * FROM students WHERE active = 1 ORDER BY name");
+    }
+    return $stmt->fetchAll();
+}
+
+function getPrograms(): array {
+    return getDB()->query("SELECT * FROM programs WHERE active = 1 ORDER BY id")->fetchAll();
 }
 
 function getWeekStart(\DateTime $date = null): string {
     if (!$date) $date = new \DateTime();
-    $clone = clone $date;
-    $dayOfWeek = (int)$clone->format('N'); // 1=Mon ... 7=Sun
+    $clone   = clone $date;
+    $dayOfWeek = (int)$clone->format('N');
     $clone->modify('-' . ($dayOfWeek - 1) . ' days');
     return $clone->format('Y-m-d');
 }
 
-function getScheduleForWeek(string $weekStart): array {
-    $db = getDB();
+// Returns weekly schedule using ENROLLMENTS (permanent/recurring model)
+function getScheduleForWeek(string $weekStart, int $programId = 1): array {
+    $db      = getDB();
+    $weekEnd = date('Y-m-d', strtotime($weekStart . ' +6 days'));
+
     $stmt = $db->prepare("
         SELECT
-            ts.id AS slot_id,
+            ts.id          AS slot_id,
             ts.day_of_week,
             ts.start_time,
             ts.end_time,
             ts.class_name,
             ts.class_type,
             ts.max_students,
-            ts.notes AS slot_notes,
-            p.id   AS professor_id,
-            p.name AS professor_name,
+            ts.notes       AS slot_notes,
+            ts.start_date,
+            ts.end_date,
+            p.id           AS professor_id,
+            p.name         AS professor_name,
             p.color_hex,
-            b.id   AS booking_id,
-            b.student_id,
-            b.status AS booking_status,
-            b.notes AS booking_notes,
-            s.name AS student_name
+            e.id           AS booking_id,
+            e.student_id,
+            e.status       AS booking_status,
+            e.notes        AS booking_notes,
+            s.name         AS student_name
         FROM time_slots ts
-        JOIN professors p ON p.id = ts.professor_id
-        LEFT JOIN bookings b ON b.time_slot_id = ts.id AND b.week_start = :week_start AND b.status != 'cancelled'
-        LEFT JOIN students s ON s.id = b.student_id
-        WHERE ts.active = 1 AND p.active = 1
+        JOIN professors p ON p.id = ts.professor_id AND p.active = 1
+        LEFT JOIN enrollments e ON e.time_slot_id = ts.id AND e.status = 'active'
+        LEFT JOIN students   s ON s.id = e.student_id   AND s.active = 1
+        WHERE ts.active     = 1
+          AND ts.program_id = :program_id
+          AND (ts.start_date IS NULL OR ts.start_date <= :week_end)
+          AND (ts.end_date   IS NULL OR ts.end_date   >= :week_start)
         ORDER BY ts.day_of_week, ts.start_time, p.name, s.name
     ");
-    $stmt->execute([':week_start' => $weekStart]);
+    $stmt->execute([
+        ':program_id' => $programId,
+        ':week_start' => $weekStart,
+        ':week_end'   => $weekEnd,
+    ]);
     $rows = $stmt->fetchAll();
 
-    // Group: [day][slot_id] => { slot info, bookings[] }
     $schedule = [];
     foreach ($rows as $row) {
-        $day  = $row['day_of_week'];
-        $sid  = $row['slot_id'];
+        $day = $row['day_of_week'];
+        $sid = $row['slot_id'];
 
         if (!isset($schedule[$day][$sid])) {
             $schedule[$day][$sid] = [
@@ -87,29 +116,31 @@ function getScheduleForWeek(string $weekStart): array {
     return $schedule;
 }
 
-function getBookingsForProfessor(int $professorId, string $weekStart): array {
-    $db = getDB();
+function getEnrollmentsForProfessor(int $professorId, int $programId = 1): array {
+    $db   = getDB();
     $stmt = $db->prepare("
         SELECT
-            ts.id AS slot_id,
+            ts.id          AS slot_id,
             ts.day_of_week,
             ts.start_time,
             ts.end_time,
             ts.class_name,
             ts.class_type,
             ts.max_students,
-            b.id AS booking_id,
-            b.student_id,
-            b.status,
-            b.notes AS booking_notes,
-            s.name AS student_name
+            e.id           AS booking_id,
+            e.student_id,
+            e.status,
+            e.notes        AS booking_notes,
+            s.name         AS student_name
         FROM time_slots ts
-        LEFT JOIN bookings b ON b.time_slot_id = ts.id AND b.week_start = :week_start AND b.status != 'cancelled'
-        LEFT JOIN students s ON s.id = b.student_id
-        WHERE ts.professor_id = :prof_id AND ts.active = 1
+        LEFT JOIN enrollments e ON e.time_slot_id = ts.id AND e.status = 'active'
+        LEFT JOIN students    s ON s.id = e.student_id   AND s.active = 1
+        WHERE ts.professor_id = :prof_id
+          AND ts.program_id   = :program_id
+          AND ts.active       = 1
         ORDER BY ts.day_of_week, ts.start_time, s.name
     ");
-    $stmt->execute([':prof_id' => $professorId, ':week_start' => $weekStart]);
+    $stmt->execute([':prof_id' => $professorId, ':program_id' => $programId]);
     $rows = $stmt->fetchAll();
 
     $schedule = [];
