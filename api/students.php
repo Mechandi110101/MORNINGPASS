@@ -119,7 +119,8 @@ if ($method === 'PUT') {
 if ($method === 'DELETE') {
     $id = (int)($input['id'] ?? 0);
     if (!$id) jsonResponse(['ok' => false, 'error' => 'id requerido'], 400);
-    $db->prepare("UPDATE students SET active = 0 WHERE id = ?")->execute([$id]);
+    $db->prepare("DELETE FROM enrollments WHERE student_id = ?")->execute([$id]);
+    $db->prepare("DELETE FROM students WHERE id = ?")->execute([$id]);
     jsonResponse(['ok' => true]);
 }
 

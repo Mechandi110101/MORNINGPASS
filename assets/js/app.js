@@ -389,42 +389,53 @@ function initDarkMode() {
   btn.onclick = () => apply(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 }
 
-// ── Global search ─────────────────────────────────────
-const DAY_SHORT = ['','Lun','Mar','Mié','Jue','Vie'];
-const PROG_ICONS = { 1: '🌅', 2: '🏫', 3: '🏆' };
+// ── Schedule student filter ───────────────────────────
+function filterSchedule(term) {
+  const container = document.getElementById('schedule-container');
+  if (!container) return;
+
+  const cards   = container.querySelectorAll('.slot-card');
+  const addBtns = container.querySelectorAll('.grid-cell-add');
+  const cells   = container.querySelectorAll('.grid-cell');
+
+  if (!term) {
+    cards.forEach(c  => { c.style.opacity = ''; c.style.pointerEvents = ''; });
+    addBtns.forEach(b => { b.style.display = ''; });
+    cells.forEach(cell => { cell.style.opacity = ''; });
+    return;
+  }
+
+  const q = term.toLowerCase();
+
+  cards.forEach(card => {
+    const names = [...card.querySelectorAll('.student-tag span:first-child')]
+      .map(el => el.textContent.toLowerCase());
+    const match = names.some(n => n.includes(q));
+    card.style.opacity       = match ? '1' : '0.12';
+    card.style.pointerEvents = match ? '' : 'none';
+  });
+
+  addBtns.forEach(b => { b.style.display = 'none'; });
+
+  cells.forEach(cell => {
+    const hasMatch = [...cell.querySelectorAll('.slot-card')]
+      .some(c => c.style.opacity !== '0.12');
+    cell.style.opacity = hasMatch ? '1' : '0.35';
+  });
+}
 
 function initNavSearch() {
   const input = document.getElementById('nav-search-input');
-  const drop  = document.getElementById('nav-search-drop');
-  if (!input || !drop) return;
+  if (!input) return;
 
   let timer;
   input.addEventListener('input', () => {
     clearTimeout(timer);
-    const q = input.value.trim();
-    if (q.length < 2) { drop.classList.add('hidden'); drop.innerHTML = ''; return; }
-    timer = setTimeout(async () => {
-      try {
-        const data = await api('api/students.php?with_slots=1&q=' + encodeURIComponent(q), 'GET');
-        const students = data.students || [];
-        if (!students.length) { drop.innerHTML = '<div class="nsd-empty">Sin resultados</div>'; drop.classList.remove('hidden'); return; }
-        drop.innerHTML = students.slice(0, 8).map(s => {
-          const ms = s.membership_status === 'expired' ? '<span class="trial-badge" style="background:var(--red)">SIN MEMBRESÍA</span>' : '';
-          const slots = (s.slots || []).map(sl =>
-            `<div class="nsd-slot">${PROG_ICONS[sl.program_id] || ''} ${DAY_SHORT[sl.day_of_week]} ${fmtTime(sl.start_time)} — ${sl.professor_name}${sl.class_name ? ' · '+sl.class_name : ''}</div>`
-          ).join('');
-          return `<div class="nsd-item" data-pid="${s.slots?.[0]?.program_id || 1}">
-            <div class="nsd-name">${s.name} ${ms}</div>
-            ${slots || '<div class="nsd-slot" style="color:var(--text-muted)">Sin grupos activos</div>'}
-          </div>`;
-        }).join('');
-        drop.classList.remove('hidden');
-      } catch (_) {}
-    }, 280);
+    timer = setTimeout(() => filterSchedule(input.value.trim()), 180);
   });
 
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#schedule-search')) { drop.classList.add('hidden'); }
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { input.value = ''; filterSchedule(''); input.blur(); }
   });
 }
 

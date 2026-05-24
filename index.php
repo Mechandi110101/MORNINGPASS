@@ -40,8 +40,7 @@ foreach ($programs as $pg) {
   <div class="schedule-toolbar">
     <div id="prof-filter" class="prof-filter"></div>
     <div class="schedule-search" id="schedule-search">
-      <input type="text" id="nav-search-input" class="schedule-search-input" placeholder="🔍 Buscar alumno…" autocomplete="off">
-      <div class="nav-search-dropdown hidden" id="nav-search-drop"></div>
+      <input type="text" id="nav-search-input" class="schedule-search-input" placeholder="Buscar alumno en horario…" autocomplete="off">
     </div>
   </div>
 
