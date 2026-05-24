@@ -14,13 +14,20 @@ $programs = [
 ];
 
 $navPages = [
-    'index.php'           => 'Horario',
-    'professor.php'       => 'Por Profesor',
-    'students.php'        => 'Estudiantes',
-    'admin/slots.php'     => 'Admin Horarios',
-    'admin/professors.php'=> 'Profesores',
+    'dashboard.php'        => '📊 Dashboard',
+    'index.php'            => 'Horario',
+    'professor.php'        => 'Por Profesor',
+    'students.php'         => 'Estudiantes',
+    'admin/slots.php'      => 'Admin Horarios',
+    'admin/professors.php' => 'Profesores',
 ];
 ?>
+<script>
+(function(){
+  var t = localStorage.getItem('morning-pass-theme');
+  if (t) document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <header class="site-header">
   <div class="header-brand">
     <span class="brand-icon">🎾</span>
@@ -46,5 +53,14 @@ $navPages = [
     ?>
       <a href="<?= $href ?>" class="<?= $isActive ? 'active' : '' ?>"><?= $label ?></a>
     <?php endforeach; ?>
+
+    <!-- Global search -->
+    <div class="nav-search" id="nav-search">
+      <input type="text" id="nav-search-input" class="nav-search-input" placeholder="🔍 Buscar alumno…" autocomplete="off">
+      <div class="nav-search-dropdown hidden" id="nav-search-drop"></div>
+    </div>
+
+    <!-- Dark mode toggle -->
+    <button id="dark-toggle" class="dark-toggle" title="Cambiar tema">🌙</button>
   </nav>
 </header>

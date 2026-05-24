@@ -1,4 +1,4 @@
-/* ── Morning Pass v3 – JS ── */
+/* ── Morning Pass v5 – JS ── */
 
 // ── Toast ─────────────────────────────────────────────
 const toastWrap = document.createElement('div');
@@ -46,15 +46,24 @@ async function initSchedule() {
   let activeProfs = new Set();
   let allProfs    = [];
 
+  let allProfessors = [];
   try {
-    const res  = await fetch(`api/slots.php?p=${programId}`);
-    const data = await res.json();
-    const map  = {};
-    (data.slots || []).forEach(s => {
+    const [slotRes, profRes] = await Promise.all([
+      fetch(`api/slots.php?p=${programId}`).then(r => r.json()),
+      fetch('api/professors.php').then(r => r.json()),
+    ]);
+    const map = {};
+    (slotRes.slots || []).forEach(s => {
       map[s.professor_id] = { id: s.professor_id, name: s.professor_name, color: s.color_hex };
     });
-    allProfs    = Object.values(map);
-    activeProfs = new Set(allProfs.map(p => String(p.id)));
+    allProfs      = Object.values(map);
+    activeProfs   = new Set(allProfs.map(p => String(p.id)));
+    allProfessors = (profRes.professors || []).filter(p => p.active);
+    // Populate quick-create professor dropdown
+    const qcProf = document.getElementById('qc-prof');
+    if (qcProf) {
+      qcProf.innerHTML = allProfessors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    }
   } catch (_) {}
 
   renderProfChips();
@@ -125,8 +134,14 @@ async function initSchedule() {
         const visible  = Object.values(daySlots).filter(
           s => s.start_time === time && activeProfs.has(String(s.professor_id))
         );
-        if (!visible.length) cell.classList.add('empty');
-        else visible.forEach(slot => cell.appendChild(buildSlotCard(slot, ws)));
+        if (!visible.length) {
+          cell.classList.add('empty');
+          const plus = mkDiv('grid-cell-add', '+');
+          plus.onclick = () => openQuickCreate(day, time, programId);
+          cell.appendChild(plus);
+        } else {
+          visible.forEach(slot => cell.appendChild(buildSlotCard(slot, ws)));
+        }
         grid.appendChild(cell);
       }
     });
@@ -188,7 +203,8 @@ async function initSchedule() {
 }
 
 // ── Enrollment Modal ──────────────────────────────────
-let allStudents = [];
+let allStudents    = [];
+let currentModalSlot = null;
 
 async function loadStudents() {
   if (allStudents.length) return;
@@ -200,6 +216,7 @@ async function loadStudents() {
 
 async function openModal(slot, programId, weekStr, onSuccess) {
   await loadStudents();
+  currentModalSlot = slot;
 
   const overlay = document.getElementById('booking-modal');
   overlay.classList.remove('hidden');
@@ -234,10 +251,11 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
     slot.bookings.forEach(b => {
       const item = mkDiv('booking-item', '');
       item.innerHTML = `
-        <span>
+        <span style="flex:1">
           ${b.student_name}
           ${b.is_trial ? `<span class="trial-badge" style="background:var(--red);margin-left:6px">PRUEBA ${b.trial_date || ''}</span>` : ''}
           ${b.is_award ? `<span class="award-badge" style="margin-left:6px">PREMIO ${b.award_date || ''}</span>` : ''}
+          ${b.notes ? `<span style="font-size:0.7rem;color:var(--text-muted);display:block;margin-top:2px">📝 ${b.notes}</span>` : ''}
         </span>
         <button class="del-booking">Quitar</button>
       `;
@@ -255,12 +273,15 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
     });
   }
 
-  const searchInput   = document.getElementById('student-search');
-  const select        = document.getElementById('student-select');
-  const bookingType   = document.getElementById('booking-type');
-  const specialWrap   = document.getElementById('special-date-wrap');
-  const specialLabel  = document.getElementById('special-date-label');
-  const specialDateIn = document.getElementById('special-date-input');
+  const searchInput    = document.getElementById('student-search');
+  const select         = document.getElementById('student-select');
+  const bookingType    = document.getElementById('booking-type');
+  const specialWrap    = document.getElementById('special-date-wrap');
+  const specialLabel   = document.getElementById('special-date-label');
+  const specialDateIn  = document.getElementById('special-date-input');
+  const noteInput      = document.getElementById('booking-note');
+  const membAlert      = document.getElementById('membership-alert');
+  const membAlertText  = document.getElementById('membership-alert-text');
 
   const form = document.getElementById('add-booking-form');
   const isSlotActive = (slot.slot_status || 'active') === 'active';
@@ -270,11 +291,27 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
   bookingType.value   = 'regular';
   specialWrap.style.display = 'none';
   specialDateIn.value = trialDateDefault;
+  if (noteInput) noteInput.value = '';
+  if (membAlert) membAlert.classList.add('hidden');
   populateSelect(select, allStudents, slot.bookings.map(b => b.student_id));
 
   searchInput.oninput = () => {
     const filtered = allStudents.filter(s => s.name.toLowerCase().includes(searchInput.value.toLowerCase()));
     populateSelect(select, filtered, slot.bookings.map(b => b.student_id));
+  };
+
+  select.onchange = () => {
+    if (!membAlert || !membAlertText) return;
+    const sid = parseInt(select.value);
+    const st  = allStudents.find(s => s.id === sid);
+    if (st && (st.membership_status === 'expired' ||
+        (st.membership_expires && st.membership_expires < new Date().toISOString().slice(0,10)))) {
+      membAlertText.textContent = st.membership_expires
+        ? `Membresía vencida el ${st.membership_expires}` : 'Membresía vencida';
+      membAlert.classList.remove('hidden');
+    } else {
+      membAlert.classList.add('hidden');
+    }
   };
 
   bookingType.onchange = () => {
@@ -298,6 +335,7 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
       toast('Selecciona una fecha', 'error'); return;
     }
     try {
+      const note = noteInput ? noteInput.value.trim() : '';
       const res = await api('api/bookings.php', 'POST', {
         slot_id:    slot.slot_id,
         student_id: studentId,
@@ -306,6 +344,7 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
         trial_date: isTrial ? specialDateIn.value : null,
         is_award:   isAward,
         award_date: isAward ? specialDateIn.value : null,
+        notes:      note,
       });
       const student = allStudents.find(s => s.id === studentId);
       slot.bookings.push({
@@ -316,6 +355,7 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
         trial_date:   isTrial ? specialDateIn.value : null,
         is_award:     !!isAward,
         award_date:   isAward ? specialDateIn.value : null,
+        notes:        note,
       });
       const label = isTrial ? 'Clase de prueba registrada' : isAward ? 'Clase premio registrada' : 'Estudiante inscrito en el grupo';
       toast(label, 'success');
@@ -335,13 +375,143 @@ function populateSelect(sel, students, excludeIds = []) {
   });
 }
 
+// ── Dark mode ─────────────────────────────────────────
+function initDarkMode() {
+  const btn = document.getElementById('dark-toggle');
+  if (!btn) return;
+  const apply = (theme) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('morning-pass-theme', theme);
+    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    btn.title = theme === 'dark' ? 'Modo claro' : 'Modo oscuro';
+  };
+  apply(localStorage.getItem('morning-pass-theme') || 'light');
+  btn.onclick = () => apply(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+}
+
+// ── Global search ─────────────────────────────────────
+const DAY_SHORT = ['','Lun','Mar','Mié','Jue','Vie'];
+const PROG_ICONS = { 1: '🌅', 2: '🏫', 3: '🏆' };
+
+function initNavSearch() {
+  const input = document.getElementById('nav-search-input');
+  const drop  = document.getElementById('nav-search-drop');
+  if (!input || !drop) return;
+
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { drop.classList.add('hidden'); drop.innerHTML = ''; return; }
+    timer = setTimeout(async () => {
+      try {
+        const data = await api('api/students.php?with_slots=1&q=' + encodeURIComponent(q), 'GET');
+        const students = data.students || [];
+        if (!students.length) { drop.innerHTML = '<div class="nsd-empty">Sin resultados</div>'; drop.classList.remove('hidden'); return; }
+        drop.innerHTML = students.slice(0, 8).map(s => {
+          const ms = s.membership_status === 'expired' ? '<span class="trial-badge" style="background:var(--red)">SIN MEMBRESÍA</span>' : '';
+          const slots = (s.slots || []).map(sl =>
+            `<div class="nsd-slot">${PROG_ICONS[sl.program_id] || ''} ${DAY_SHORT[sl.day_of_week]} ${fmtTime(sl.start_time)} — ${sl.professor_name}${sl.class_name ? ' · '+sl.class_name : ''}</div>`
+          ).join('');
+          return `<div class="nsd-item" data-pid="${s.slots?.[0]?.program_id || 1}">
+            <div class="nsd-name">${s.name} ${ms}</div>
+            ${slots || '<div class="nsd-slot" style="color:var(--text-muted)">Sin grupos activos</div>'}
+          </div>`;
+        }).join('');
+        drop.classList.remove('hidden');
+      } catch (_) {}
+    }, 280);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#nav-search')) { drop.classList.add('hidden'); }
+  });
+}
+
+// ── Quick-create slot from schedule ──────────────────
+function openQuickCreate(day, time, programId) {
+  const modal = document.getElementById('quick-create-modal');
+  if (!modal) return;
+  document.getElementById('qc-day').value   = day;
+  document.getElementById('qc-start').value = time;
+  // Default end = start + 1h
+  const [h, m] = time.split(':').map(Number);
+  const endH = (h + 1) % 24;
+  document.getElementById('qc-end').value   = `${String(endH).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  document.getElementById('qc-title').textContent = `Nuevo grupo — ${DAY_NAMES[day]} ${fmtTime(time)}`;
+  modal.classList.remove('hidden');
+}
+
+// ── Copy slot list to clipboard ───────────────────────
+function initCopyList() {
+  const btn = document.getElementById('btn-copy-list');
+  if (!btn) return;
+  btn.onclick = () => {
+    const slot = currentModalSlot;
+    if (!slot) return;
+    const lines = [
+      `🎾 ${slot.professor_name} — ${DAY_NAMES[slot.day_of_week]} ${fmtTime(slot.start_time)}`,
+      `Grupo: ${slot.class_name || '—'} (${slot.bookings.length}/${slot.max_students} cupos)`,
+      '──────────────────',
+      ...slot.bookings.map(b =>
+        `• ${b.student_name}` +
+        (b.is_trial ? ` (PRUEBA ${b.trial_date || ''})` : '') +
+        (b.is_award ? ` (PREMIO ${b.award_date || ''})` : '') +
+        (b.notes ? ` — ${b.notes}` : '')
+      ),
+      '──────────────────',
+      'Morning Pass',
+    ];
+    navigator.clipboard.writeText(lines.join('\n'))
+      .then(() => toast('Lista copiada ✓', 'success'))
+      .catch(() => toast('No se pudo copiar', 'error'));
+  };
+}
+
 // ── Init ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initDarkMode();
+  initNavSearch();
+  initCopyList();
+
+  // Enrollment modal close
   const overlay = document.getElementById('booking-modal');
   if (overlay) {
     document.getElementById('modal-close').onclick = () => overlay.classList.add('hidden');
     overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.add('hidden'); };
   }
+
+  // Quick-create modal
+  const qcModal = document.getElementById('quick-create-modal');
+  if (qcModal) {
+    document.getElementById('qc-close').onclick = () => qcModal.classList.add('hidden');
+    qcModal.onclick = (e) => { if (e.target === qcModal) qcModal.classList.add('hidden'); };
+
+    document.getElementById('btn-qc-save')?.addEventListener('click', async () => {
+      const profId = parseInt(document.getElementById('qc-prof').value);
+      const day    = parseInt(document.getElementById('qc-day').value);
+      const start  = document.getElementById('qc-start').value;
+      const end    = document.getElementById('qc-end').value;
+      if (!profId || !start || !end) { toast('Completa todos los campos requeridos', 'error'); return; }
+      try {
+        const programId = typeof CURRENT_PROGRAM !== 'undefined' ? CURRENT_PROGRAM : 1;
+        await api('api/slots.php', 'POST', {
+          program_id:   programId,
+          professor_id: profId,
+          day_of_week:  day,
+          start_time:   start,
+          end_time:     end,
+          class_name:   document.getElementById('qc-name').value.trim(),
+          max_students: parseInt(document.getElementById('qc-max').value) || 4,
+          slot_status:  document.getElementById('qc-status').value,
+        });
+        toast('Grupo creado ✓', 'success');
+        qcModal.classList.add('hidden');
+        setTimeout(() => location.reload(), 600);
+      } catch (e) { toast(e.message, 'error'); }
+    });
+  }
+
   initSchedule();
 });
 

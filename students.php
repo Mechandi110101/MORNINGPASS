@@ -55,9 +55,21 @@ $genderLabel = ['M' => 'Hombre', 'F' => 'Mujer', '' => ''];
           <label class="form-label">Categoría</label>
           <input type="text" id="new-category" class="input-field" placeholder="Ej: CAT 4TA">
         </div>
-        <div class="form-group full">
+        <div class="form-group">
           <label class="form-label">Teléfono</label>
           <input type="text" id="new-phone" class="input-field" placeholder="Ej: 8888-0000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Membresía</label>
+          <select id="new-membership-status" class="select-field">
+            <option value="active">Activa</option>
+            <option value="courtesy">Cortesía</option>
+            <option value="expired">Vencida</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Fecha vencimiento membresía</label>
+          <input type="date" id="new-membership-expires" class="input-field">
         </div>
       </div>
       <button class="btn-primary" id="btn-add-student" style="margin-top:12px;width:100%">
@@ -87,6 +99,18 @@ $genderLabel = ['M' => 'Hombre', 'F' => 'Mujer', '' => ''];
               <?php if ($s['phone']): ?>
                 <span class="badge" style="color:var(--text-muted)">📞 <?= htmlspecialchars($s['phone']) ?></span>
               <?php endif; ?>
+              <?php
+                $ms = $s['membership_status'] ?? 'active';
+                $me = $s['membership_expires'] ?? null;
+                $meExpired = $me && $me < date('Y-m-d');
+                if ($ms === 'expired' || $meExpired):
+              ?><span class="badge red">Membresía vencida</span><?php
+                elseif ($ms === 'courtesy'):
+              ?><span class="badge">Cortesía</span><?php
+                elseif ($me):
+              ?><span class="badge green" style="font-size:0.67rem">✓ <?= date('d/m/Y', strtotime($me)) ?></span><?php
+                endif;
+              ?>
               <?php if (!($s['active'] ?? 1)): ?>
                 <span class="badge red">Inactivo</span>
               <?php endif; ?>
@@ -117,9 +141,11 @@ document.getElementById('btn-add-student').addEventListener('click', async () =>
   try {
     const res = await api('api/students.php', 'POST', {
       name,
-      gender:   document.getElementById('new-gender').value,
-      category: document.getElementById('new-category').value.trim(),
-      phone:    document.getElementById('new-phone').value.trim(),
+      gender:              document.getElementById('new-gender').value,
+      category:            document.getElementById('new-category').value.trim(),
+      phone:               document.getElementById('new-phone').value.trim(),
+      membership_status:   document.getElementById('new-membership-status').value,
+      membership_expires:  document.getElementById('new-membership-expires').value || null,
     });
     toast('Estudiante agregado', 'success');
     const card = buildStudentCard(res.student_id, name.toUpperCase(),

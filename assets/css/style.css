@@ -710,6 +710,109 @@ body {
   font-size: 0.9rem;
 }
 
+/* ── DARK MODE TOGGLE ────────────────────────────────── */
+.dark-toggle {
+  background: rgba(255,255,255,0.1);
+  border: none; border-radius: 6px;
+  padding: 5px 9px; cursor: pointer;
+  font-size: 1rem; color: #fff;
+  transition: background 0.15s;
+  margin-left: 4px; flex-shrink: 0;
+}
+.dark-toggle:hover { background: rgba(255,255,255,0.22); }
+
+/* ── NAV SEARCH ──────────────────────────────────────── */
+.nav-search {
+  position: relative; flex-shrink: 0;
+}
+.nav-search-input {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  width: 170px;
+  outline: none;
+  transition: background 0.15s, width 0.2s;
+}
+.nav-search-input::placeholder { color: rgba(255,255,255,0.5); }
+.nav-search-input:focus { background: rgba(255,255,255,0.2); width: 210px; }
+.nav-search-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--white); border: 1px solid var(--blue-border);
+  border-radius: 10px; box-shadow: var(--shadow-lg);
+  width: 320px; max-height: 400px; overflow-y: auto; z-index: 500;
+}
+.nsd-item {
+  padding: 10px 14px; border-bottom: 1px solid var(--blue-border);
+  cursor: default;
+}
+.nsd-item:last-child { border-bottom: none; }
+.nsd-name { font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; }
+.nsd-slot { font-size: 0.72rem; color: var(--text-muted); padding: 1px 0; }
+.nsd-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 0.82rem; }
+
+/* ── GRID CELL ADD BUTTON ────────────────────────────── */
+.grid-cell-add {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(39,57,63,0.08);
+  color: var(--text-muted); font-size: 1.1rem; font-weight: 300;
+  cursor: pointer; margin: 4px auto;
+  transition: background 0.15s, color 0.15s;
+}
+.grid-cell-add:hover { background: var(--red); color: #fff; }
+
+/* ── MEMBERSHIP MODAL ALERT ──────────────────────────── */
+.membership-modal-alert {
+  margin-top: 6px; padding: 7px 12px;
+  background: rgba(184,35,42,0.1);
+  border: 1px solid rgba(184,35,42,0.3);
+  border-radius: 6px; font-size: 0.78rem;
+  color: var(--red); font-weight: 600;
+}
+.membership-modal-alert.hidden { display: none; }
+
+/* ── DARK MODE ───────────────────────────────────────── */
+[data-theme="dark"] {
+  --red:         #e05560;
+  --red-dark:    #c14250;
+  --red-light:   rgba(224,85,96,0.14);
+  --blue:        #1c2d36;
+  --blue-mid:    #2c3f4a;
+  --blue-light:  #111e27;
+  --blue-border: #2d4455;
+  --white:       #1c2d36;
+  --text:        #d0e8f0;
+  --text-muted:  #6a8a9a;
+  --success:     #3dbb65;
+  --danger:      #e05560;
+  --shadow:      0 2px 8px rgba(0,0,0,0.5);
+  --shadow-lg:   0 6px 24px rgba(0,0,0,0.65);
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #111e27;
+  color: var(--text);
+  border-color: var(--blue-border);
+}
+[data-theme="dark"] .slot-card { color: #fff; }
+[data-theme="dark"] .data-table th { background: #111e27; }
+[data-theme="dark"] .form-card { background: var(--white); }
+[data-theme="dark"] .modal { background: var(--white); }
+[data-theme="dark"] .modal-header { border-color: var(--blue-border); }
+[data-theme="dark"] .student-card { background: var(--white); }
+[data-theme="dark"] .prof-admin-card { background: var(--white); border-color: var(--blue-border); }
+[data-theme="dark"] .nav-search-input { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .nav-search-dropdown { background: #1c2d36; border-color: #2d4455; }
+[data-theme="dark"] .nsd-item { border-color: #2d4455; }
+[data-theme="dark"] .today-slot-card { background: var(--white); border-color: var(--blue-border); }
+[data-theme="dark"] .membership-item { background: var(--white); border-color: var(--blue-border); }
+[data-theme="dark"] .special-item { background: var(--white); border-color: var(--blue-border); }
+[data-theme="dark"] .site-header { background: #111e27; }
+
 /* ── RESPONSIVE ──────────────────────────────────────── */
 @media (max-width: 900px) {
   .program-tabs { display: none; }

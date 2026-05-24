@@ -47,12 +47,65 @@ foreach ($programs as $pg) {
   </div>
 </div>
 
+<!-- Quick-Create Slot Modal -->
+<div id="quick-create-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h2 id="qc-title">Nuevo grupo</h2>
+      <button class="modal-close" id="qc-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Profesor *</label>
+          <select id="qc-prof" class="select-field"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Día *</label>
+          <select id="qc-day" class="select-field">
+            <option value="1">Lunes</option><option value="2">Martes</option>
+            <option value="3">Miércoles</option><option value="4">Jueves</option>
+            <option value="5">Viernes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hora inicio *</label>
+          <input type="time" id="qc-start" class="input-field">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hora fin *</label>
+          <input type="time" id="qc-end" class="input-field">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Nombre del grupo</label>
+          <input type="text" id="qc-name" class="input-field" placeholder="Ej: CAT 5TA JEAN">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Máx. estudiantes</label>
+          <input type="number" id="qc-max" class="input-field" value="4" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estado inicial</label>
+          <select id="qc-status" class="select-field">
+            <option value="active">✅ Activo</option>
+            <option value="pending">⏳ Pendiente</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-qc-save" style="margin-top:14px;width:100%">Crear grupo</button>
+    </div>
+  </div>
+</div>
+
 <!-- Enrollment Modal -->
 <div id="booking-modal" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-header">
       <h2 id="modal-title">Grupo</h2>
-      <button class="modal-close" id="modal-close">×</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-secondary" id="btn-copy-list" style="font-size:0.72rem;padding:5px 10px" title="Copiar lista">📋 Copiar</button>
+        <button class="modal-close" id="modal-close">×</button>
+      </div>
     </div>
     <div class="modal-body">
 
@@ -78,6 +131,13 @@ foreach ($programs as $pg) {
           <select id="student-select" class="select-field">
             <option value="">— Seleccionar estudiante —</option>
           </select>
+          <div id="membership-alert" class="membership-modal-alert hidden">
+            ⚠️ <span id="membership-alert-text"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nota (opcional)</label>
+          <input type="text" id="booking-note" class="input-field" placeholder="Ej: viene con su hermano">
         </div>
         <!-- Booking type -->
         <div class="form-group">

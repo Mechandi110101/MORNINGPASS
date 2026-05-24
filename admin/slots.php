@@ -130,10 +130,27 @@ $slots = $slots->fetchAll();
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($slots as $slot): ?>
-        <tr id="slot-row-<?= $slot['id'] ?>">
+        <?php foreach ($slots as $slot):
+          $slotJson = htmlspecialchars(json_encode([
+            'id'           => $slot['id'],
+            'program_id'   => $slot['program_id'],
+            'professor_id' => $slot['professor_id'],
+            'day_of_week'  => $slot['day_of_week'],
+            'start_time'   => $slot['start_time'],
+            'end_time'     => $slot['end_time'],
+            'class_name'   => $slot['class_name'],
+            'class_type'   => $slot['class_type'],
+            'max_students' => $slot['max_students'],
+            'notes'        => $slot['notes'] ?? '',
+            'start_date'   => $slot['start_date'],
+            'end_date'     => $slot['end_date'],
+            'slot_status'  => $slot['slot_status'] ?? 'active',
+            'enrolled'     => $slot['enrolled'],
+          ]), ENT_QUOTES);
+        ?>
+        <tr id="slot-row-<?= $slot['id'] ?>" data-slot='<?= $slotJson ?>'>
           <td><?= $dayNames[$slot['day_of_week']] ?></td>
-          <td style="white-space:nowrap">
+          <td class="td-hora" style="white-space:nowrap">
             <?= formatTime($slot['start_time']) ?> – <?= formatTime($slot['end_time']) ?>
           </td>
           <td>
@@ -142,16 +159,18 @@ $slots = $slots->fetchAll();
               <?= htmlspecialchars($slot['professor_name']) ?>
             </span>
           </td>
-          <td><?= htmlspecialchars($slot['class_name']) ?></td>
-          <td>
+          <td class="td-class"><?= htmlspecialchars($slot['class_name']) ?></td>
+          <td class="td-max">
             <span style="font-weight:700;color:<?= $slot['enrolled'] >= $slot['max_students'] ? 'var(--red)' : 'var(--success)' ?>">
               <?= $slot['enrolled'] ?>/<?= $slot['max_students'] ?>
             </span>
           </td>
           <td style="font-size:0.78rem"><?= $slot['start_date'] ? date('d/m/Y', strtotime($slot['start_date'])) : '—' ?></td>
           <td style="font-size:0.78rem"><?= $slot['end_date']   ? date('d/m/Y', strtotime($slot['end_date']))   : '∞' ?></td>
-          <td>
+          <td class="td-actions">
             <?php $st = $slot['slot_status'] ?? 'active'; ?>
+            <button class="btn-secondary btn-edit-slot" data-id="<?= $slot['id'] ?>"
+                    style="font-size:0.72rem;padding:5px 8px;margin-right:2px" title="Editar">✏️</button>
             <?php if ($st !== 'active'): ?>
               <button class="btn-primary btn-activate-slot" data-id="<?= $slot['id'] ?>"
                       style="font-size:0.72rem;padding:5px 10px;margin-right:4px">
@@ -230,6 +249,103 @@ document.querySelectorAll('.btn-close-slot').forEach(btn => {
       toast('Grupo cerrado 🔒');
       setTimeout(() => location.reload(), 500);
     } catch (e) { toast(e.message, 'error'); }
+  });
+});
+
+// ── Inline edit ───────────────────────────────────────────
+function fmtT(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+document.querySelectorAll('.btn-edit-slot').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const row  = document.getElementById('slot-row-' + btn.dataset.id);
+    const slot = JSON.parse(row.dataset.slot);
+
+    const tdHora  = row.querySelector('.td-hora');
+    const tdClass = row.querySelector('.td-class');
+    const tdMax   = row.querySelector('.td-max');
+    const tdAct   = row.querySelector('.td-actions');
+
+    // Save original HTML
+    const origHora  = tdHora.innerHTML;
+    const origClass = tdClass.innerHTML;
+    const origMax   = tdMax.innerHTML;
+
+    // Inline inputs
+    const inf = (type, val, w, extra='') =>
+      `<input type="${type}" class="input-field" style="width:${w};padding:4px 5px;font-size:0.78rem" value="${val}" ${extra}>`;
+
+    tdHora.innerHTML  = inf('time', slot.start_time.slice(0,5), '88px') + ' – ' + inf('time', slot.end_time.slice(0,5), '88px');
+    tdClass.innerHTML = inf('text', slot.class_name.replace(/"/g,'&quot;'), '130px');
+    tdMax.innerHTML   = inf('number', slot.max_students, '52px', 'min="1" max="20"');
+
+    // Swap buttons
+    btn.style.display = 'none';
+    const saveBtn = Object.assign(document.createElement('button'), {
+      className: 'btn-primary',
+      textContent: '✓',
+      title: 'Guardar',
+      style: { cssText: 'font-size:0.72rem;padding:5px 8px;margin-right:2px' },
+    });
+    const cancelBtn = Object.assign(document.createElement('button'), {
+      className: 'btn-secondary',
+      textContent: '✕',
+      title: 'Cancelar',
+      style: { cssText: 'font-size:0.72rem;padding:5px 8px;margin-right:2px' },
+    });
+    saveBtn.style.cssText   = 'font-size:0.72rem;padding:5px 8px;margin-right:2px';
+    cancelBtn.style.cssText = 'font-size:0.72rem;padding:5px 8px;margin-right:2px';
+    tdAct.prepend(cancelBtn);
+    tdAct.prepend(saveBtn);
+
+    const restore = () => {
+      tdHora.innerHTML  = origHora;
+      tdClass.innerHTML = origClass;
+      tdMax.innerHTML   = origMax;
+      saveBtn.remove(); cancelBtn.remove();
+      btn.style.display = '';
+    };
+
+    cancelBtn.onclick = restore;
+
+    saveBtn.onclick = async () => {
+      const times      = tdHora.querySelectorAll('input');
+      const newStart   = times[0].value;
+      const newEnd     = times[1].value;
+      const newClass   = tdClass.querySelector('input').value.trim();
+      const newMax     = parseInt(tdMax.querySelector('input').value) || slot.max_students;
+      try {
+        await api('../api/slots.php', 'PUT', {
+          slot_id:      slot.id,
+          program_id:   slot.program_id,
+          professor_id: slot.professor_id,
+          day_of_week:  slot.day_of_week,
+          start_time:   newStart,
+          end_time:     newEnd,
+          class_name:   newClass,
+          class_type:   slot.class_type,
+          max_students: newMax,
+          notes:        slot.notes,
+          start_date:   slot.start_date,
+          end_date:     slot.end_date,
+          slot_status:  slot.slot_status,
+        });
+        // Update stored data
+        Object.assign(slot, { start_time: newStart+':00', end_time: newEnd+':00', class_name: newClass, max_students: newMax });
+        row.dataset.slot = JSON.stringify(slot);
+        // Restore with new values
+        tdHora.innerHTML  = `${fmtT(newStart)} – ${fmtT(newEnd)}`;
+        tdClass.innerHTML = newClass;
+        const color = newMax > slot.enrolled ? 'var(--success)' : 'var(--red)';
+        tdMax.innerHTML   = `<span style="font-weight:700;color:${color}">${slot.enrolled}/${newMax}</span>`;
+        saveBtn.remove(); cancelBtn.remove();
+        btn.style.display = '';
+        toast('Cambios guardados ✓', 'success');
+      } catch (e) { toast(e.message, 'error'); }
+    };
   });
 });
 </script>
