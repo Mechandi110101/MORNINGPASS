@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+requireAuth();
 
 header('Content-Type: application/json; charset=utf-8');
 $method = $_SERVER['REQUEST_METHOD'];
@@ -51,7 +53,10 @@ if ($method === 'POST') {
         $input['end_date']      ?: null,
         $input['slot_status']   ?? 'active',
     ]);
-    jsonResponse(['ok' => true, 'slot_id' => (int)$db->lastInsertId()]);
+    $slotId = (int)$db->lastInsertId();
+    logAudit('create_slot', 'time_slot', $slotId,
+        "Grupo creado: {$input['class_name']} día {$input['day_of_week']} {$input['start_time']}");
+    jsonResponse(['ok' => true, 'slot_id' => $slotId]);
 }
 
 if ($method === 'PUT') {
@@ -62,9 +67,11 @@ if ($method === 'PUT') {
     if (isset($input['action'])) {
         $newStatus = $input['action'] === 'activate' ? 'active' : 'closed';
         $db->prepare("UPDATE time_slots SET slot_status = ? WHERE id = ?")->execute([$newStatus, $slotId]);
+        logAudit('update_slot_status', 'time_slot', $slotId, "Estado grupo: {$newStatus}");
         jsonResponse(['ok' => true, 'slot_status' => $newStatus]);
     }
 
+    // Full edit
     $stmt = $db->prepare("
         UPDATE time_slots SET
             program_id   = ?, professor_id = ?, day_of_week  = ?,
@@ -88,13 +95,23 @@ if ($method === 'PUT') {
         $input['slot_status']   ?? 'active',
         $slotId,
     ]);
+    logAudit('edit_slot', 'time_slot', $slotId,
+        "Grupo editado: {$input['class_name']} día {$input['day_of_week']} {$input['start_time']}");
     jsonResponse(['ok' => true]);
 }
 
 if ($method === 'DELETE') {
     $slotId = (int)($input['slot_id'] ?? 0);
     if (!$slotId) jsonResponse(['ok' => false, 'error' => 'slot_id requerido'], 400);
+
+    $slotInfo = $db->prepare("SELECT class_name FROM time_slots WHERE id = ?")->execute([$slotId]);
+    $s = $db->prepare("SELECT class_name FROM time_slots WHERE id = ?");
+    $s->execute([$slotId]);
+    $info = $s->fetch();
+
     $db->prepare("UPDATE time_slots SET active = 0 WHERE id = ?")->execute([$slotId]);
+    logAudit('delete_slot', 'time_slot', $slotId,
+        "Grupo eliminado: " . ($info['class_name'] ?? $slotId));
     jsonResponse(['ok' => true]);
 }
 

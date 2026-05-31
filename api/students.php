@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+requireAuth();
 
 header('Content-Type: application/json; charset=utf-8');
 $method = $_SERVER['REQUEST_METHOD'];
@@ -86,17 +88,21 @@ if ($method === 'POST') {
         $input['membership_status']  ?? 'active',
         $input['membership_expires'] ?: null,
     ]);
-    jsonResponse(['ok' => true, 'student_id' => (int)$db->lastInsertId()]);
+    $studentId = (int)$db->lastInsertId();
+    logAudit('create_student', 'student', $studentId, "Estudiante creado: {$name}");
+    jsonResponse(['ok' => true, 'student_id' => $studentId]);
 }
 
 if ($method === 'PUT') {
     $id = (int)($input['id'] ?? 0);
     if (!$id) jsonResponse(['ok' => false, 'error' => 'id requerido'], 400);
 
-    // Quick membership-only update (from dashboard / students page)
+    // Quick membership-only update
     if (!empty($input['membership_only'])) {
         $db->prepare("UPDATE students SET membership_status=?, membership_expires=? WHERE id=?")
            ->execute([$input['membership_status'] ?? 'active', $input['membership_expires'] ?: null, $id]);
+        logAudit('update_membership', 'student', $id,
+            "Membresía actualizada: {$input['membership_status']}");
         jsonResponse(['ok' => true]);
     }
 
@@ -113,14 +119,23 @@ if ($method === 'PUT') {
         $input['membership_expires'] ?: null,
         $id,
     ]);
+    logAudit('edit_student', 'student', $id, "Estudiante editado: {$name}");
     jsonResponse(['ok' => true]);
 }
 
 if ($method === 'DELETE') {
     $id = (int)($input['id'] ?? 0);
     if (!$id) jsonResponse(['ok' => false, 'error' => 'id requerido'], 400);
+
+    $s = $db->prepare("SELECT name FROM students WHERE id = ?");
+    $s->execute([$id]);
+    $info = $s->fetch();
+
     $db->prepare("DELETE FROM enrollments WHERE student_id = ?")->execute([$id]);
     $db->prepare("DELETE FROM students WHERE id = ?")->execute([$id]);
+
+    logAudit('delete_student', 'student', $id,
+        "Estudiante eliminado permanentemente: " . ($info['name'] ?? $id));
     jsonResponse(['ok' => true]);
 }
 

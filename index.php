@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/auth.php';
+requireAuth();
 $basePath       = '';
 $currentProgram = (int)($_GET['p'] ?? 1);
 $programs       = getPrograms();
@@ -134,17 +136,19 @@ foreach ($programs as $pg) {
       <div id="modal-booking-list" class="booking-list"></div>
 
       <form id="add-booking-form" class="add-booking-form">
-        <div class="form-group">
-          <label class="form-label">Buscar estudiante</label>
-          <input type="text" id="student-search" class="input-field" placeholder="Escribir nombre…" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Seleccionar</label>
-          <select id="student-select" class="select-field">
-            <option value="">— Seleccionar estudiante —</option>
-          </select>
-          <div id="membership-alert" class="membership-modal-alert hidden">
-            ⚠️ <span id="membership-alert-text"></span>
+        <div id="student-search-section">
+          <div class="form-group">
+            <label class="form-label">Buscar estudiante</label>
+            <input type="text" id="student-search" class="input-field" placeholder="Escribir nombre…" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Seleccionar</label>
+            <select id="student-select" class="select-field">
+              <option value="">— Seleccionar estudiante —</option>
+            </select>
+            <div id="membership-alert" class="membership-modal-alert hidden">
+              ⚠️ <span id="membership-alert-text"></span>
+            </div>
           </div>
         </div>
         <div class="form-group">
@@ -163,6 +167,17 @@ foreach ($programs as $pg) {
         <div id="special-date-wrap" style="display:none">
           <label class="form-label" id="special-date-label">Fecha</label>
           <input type="date" id="special-date-input" class="input-field">
+        </div>
+        <!-- Guest name option (only for trial/award) -->
+        <div id="guest-name-wrap" style="display:none">
+          <div class="guest-toggle-row" id="guest-toggle-row">
+            <input type="checkbox" id="guest-toggle">
+            <label for="guest-toggle">Registrar como invitado (nombre libre, sin crear alumno en BD)</label>
+          </div>
+          <div id="guest-name-field" style="display:none;margin-top:8px">
+            <label class="form-label">Nombre del invitado *</label>
+            <input type="text" id="guest-name-input" class="input-field" placeholder="Escribe el nombre completo…" autocomplete="off">
+          </div>
         </div>
         <button type="submit" class="btn-primary">Inscribir estudiante</button>
       </form>

@@ -31,6 +31,8 @@ async function api(path, method = 'GET', body = null) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   const res  = await fetch(path, opts);
+  // Session expired → redirect to login
+  if (res.status === 401) { window.location.href = 'login.php'; return; }
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'Error desconocido');
   return data;
@@ -170,7 +172,10 @@ async function initSchedule() {
     card.innerHTML = `
       <div class="slot-header">
         <span class="prof-name">${slot.professor_name}</span>
-        <span class="slot-capacity" style="${!isActive ? 'opacity:0.7' : ''}">${booked}/${max}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="slot-capacity" style="${!isActive ? 'opacity:0.7' : ''}">${booked}/${max}</span>
+          <button class="slot-edit-btn" title="Editar grupo">✏️</button>
+        </div>
       </div>
       <div class="slot-class">${slot.class_name || fmtTime(slot.start_time)}</div>
       ${!isActive ? `<span class="slot-status-badge">${statusLabels[status] || status}</span>` : ''}
@@ -180,14 +185,17 @@ async function initSchedule() {
 
     const list = card.querySelector('.student-list');
     slot.bookings.forEach(b => {
-      const tag = mkDiv('student-tag' + (b.is_trial ? ' is-trial' : b.is_award ? ' is-award' : ''), '');
+      const isGuest = b.is_guest || (!b.student_id && b.guest_name);
+      const tagClass = 'student-tag' + (b.is_trial ? ' is-trial' : b.is_award ? ' is-award' : '') + (isGuest ? ' is-guest' : '');
+      const tag = mkDiv(tagClass, '');
+      const displayName = b.student_name || b.guest_name || 'Invitado';
       tag.innerHTML = `
-        <span>${b.student_name}${b.is_trial ? '<span class="trial-badge">PRUEBA</span>' : b.is_award ? '<span class="award-badge">PREMIO</span>' : ''}</span>
+        <span>${displayName}${b.is_trial ? '<span class="trial-badge">PRUEBA</span>' : b.is_award ? '<span class="award-badge">PREMIO</span>' : ''}${isGuest ? '<span class="guest-badge">INVITADO</span>' : ''}</span>
         <button class="remove-btn" title="Quitar del grupo">×</button>
       `;
       tag.querySelector('.remove-btn').onclick = async (e) => {
         e.stopPropagation();
-        if (!confirm(`¿Quitar a ${b.student_name} de este grupo?`)) return;
+        if (!confirm(`¿Quitar a ${displayName} de este grupo?`)) return;
         try {
           await api('api/bookings.php', 'DELETE', { booking_id: b.booking_id });
           toast('Estudiante quitado del grupo', 'success');
@@ -196,6 +204,9 @@ async function initSchedule() {
       };
       list.appendChild(tag);
     });
+
+    const editBtn = card.querySelector('.slot-edit-btn');
+    if (editBtn) editBtn.onclick = (e) => { e.stopPropagation(); openEditSlot(slot); };
 
     const addBtn = card.querySelector('.add-student-btn');
     if (addBtn) addBtn.onclick = (e) => { e.stopPropagation(); openModal(slot, programId, weekStr, () => renderSchedule()); };
@@ -285,6 +296,9 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
   const noteInput      = document.getElementById('booking-note');
   const membAlert      = document.getElementById('membership-alert');
   const membAlertText  = document.getElementById('membership-alert-text');
+  const guestWrap      = document.getElementById('guest-name-wrap');
+  const guestInput     = document.getElementById('guest-name-input');
+  const studentSection = document.getElementById('student-search-section');
 
   const form = document.getElementById('add-booking-form');
   const isSlotActive = (slot.slot_status || 'active') === 'active';
@@ -292,10 +306,13 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
 
   searchInput.value   = '';
   bookingType.value   = 'regular';
-  specialWrap.style.display = 'none';
+  specialWrap.style.display  = 'none';
+  if (guestWrap) guestWrap.style.display = 'none';
+  if (studentSection) studentSection.style.display = '';
   specialDateIn.value = trialDateDefault;
   if (noteInput) noteInput.value = '';
   if (membAlert) membAlert.classList.add('hidden');
+  if (guestInput) guestInput.value = '';
   populateSelect(select, allStudents, slot.bookings.map(b => b.student_id));
 
   searchInput.oninput = () => {
@@ -319,29 +336,54 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
 
   bookingType.onchange = () => {
     const t = bookingType.value;
-    if (t !== 'regular') {
+    const isSpecial = t !== 'regular';
+    if (isSpecial) {
       specialWrap.style.display = 'block';
       specialLabel.textContent  = t === 'trial' ? 'Fecha de la clase de prueba' : 'Fecha de la clase premio';
+      // Show guest-name option for trial/award
+      if (guestWrap) guestWrap.style.display = 'block';
     } else {
       specialWrap.style.display = 'none';
+      if (guestWrap) guestWrap.style.display = 'none';
+      if (studentSection) studentSection.style.display = '';
     }
   };
 
+  // Toggle between registered student and guest name
+  const guestToggle    = document.getElementById('guest-toggle');
+  const guestNameField = document.getElementById('guest-name-field');
+  if (guestToggle) {
+    guestToggle.onchange = () => {
+      const useGuest = guestToggle.checked;
+      if (studentSection) studentSection.style.display = useGuest ? 'none' : '';
+      if (guestNameField) guestNameField.style.display = useGuest ? '' : 'none';
+      if (guestInput)     guestInput.required = useGuest;
+    };
+    guestToggle.checked = false;
+    if (guestNameField) guestNameField.style.display = 'none';
+  }
+
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const studentId = parseInt(select.value);
-    if (!studentId) { toast('Selecciona un estudiante', 'error'); return; }
-    const type    = bookingType.value;
-    const isTrial = type === 'trial' ? 1 : 0;
-    const isAward = type === 'award' ? 1 : 0;
-    if ((isTrial || isAward) && !specialDateIn.value) {
+    const type      = bookingType.value;
+    const isTrial   = type === 'trial' ? 1 : 0;
+    const isAward   = type === 'award' ? 1 : 0;
+    const isSpecial = isTrial || isAward;
+    const useGuest  = guestToggle && guestToggle.checked && isSpecial;
+    const guestName = useGuest ? (guestInput ? guestInput.value.trim() : '') : '';
+    const studentId = useGuest ? null : parseInt(select.value);
+
+    if (!useGuest && !studentId) { toast('Selecciona un estudiante', 'error'); return; }
+    if (useGuest && !guestName)  { toast('Ingresa el nombre del invitado', 'error'); return; }
+    if (isSpecial && !specialDateIn.value) {
       toast('Selecciona una fecha', 'error'); return;
     }
     try {
       const note = noteInput ? noteInput.value.trim() : '';
       const res = await api('api/bookings.php', 'POST', {
         slot_id:    slot.slot_id,
-        student_id: studentId,
+        student_id: studentId || undefined,
+        guest_name: guestName || undefined,
         program_id: programId,
         is_trial:   isTrial,
         trial_date: isTrial ? specialDateIn.value : null,
@@ -349,11 +391,14 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
         award_date: isAward ? specialDateIn.value : null,
         notes:      note,
       });
-      const student = allStudents.find(s => s.id === studentId);
+      const student    = studentId ? allStudents.find(s => s.id === studentId) : null;
+      const finalName  = guestName || (student ? student.name : 'Estudiante');
       slot.bookings.push({
         booking_id:   res.booking_id,
         student_id:   studentId,
-        student_name: student.name,
+        student_name: finalName,
+        guest_name:   guestName || null,
+        is_guest:     !!guestName,
         is_trial:     !!isTrial,
         trial_date:   isTrial ? specialDateIn.value : null,
         is_award:     !!isAward,
@@ -362,6 +407,7 @@ function renderModalContent(slot, programId, weekStr, trialDateDefault, onSucces
       });
       const label = isTrial ? 'Clase de prueba registrada' : isAward ? 'Clase premio registrada' : 'Estudiante inscrito en el grupo';
       toast(label, 'success');
+      if (guestToggle) guestToggle.checked = false;
       renderModalContent(slot, programId, weekStr, trialDateDefault, onSuccess);
       if (onSuccess) onSuccess();
     } catch (err) { toast(err.message, 'error'); }
@@ -483,13 +529,37 @@ function initNavSearch() {
 function openQuickCreate(day, time, programId) {
   const modal = document.getElementById('quick-create-modal');
   if (!modal) return;
+  // Clear edit state
+  modal._editSlotId = null;
   document.getElementById('qc-day').value   = day;
   document.getElementById('qc-start').value = time;
   // Default end = start + 1h
   const [h, m] = time.split(':').map(Number);
   const endH = (h + 1) % 24;
   document.getElementById('qc-end').value   = `${String(endH).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  document.getElementById('qc-name').value   = '';
+  document.getElementById('qc-max').value    = '4';
+  document.getElementById('qc-status').value = 'active';
   document.getElementById('qc-title').textContent = `Nuevo grupo — ${DAY_NAMES[day]} ${fmtTime(time)}`;
+  document.getElementById('btn-qc-save').textContent = 'Crear grupo';
+  modal.classList.remove('hidden');
+}
+
+// ── Edit existing slot from schedule card ─────────────
+function openEditSlot(slot) {
+  const modal = document.getElementById('quick-create-modal');
+  if (!modal) return;
+  modal._editSlotId = slot.slot_id;
+
+  document.getElementById('qc-prof').value   = String(slot.professor_id);
+  document.getElementById('qc-day').value    = String(slot.day_of_week);
+  document.getElementById('qc-start').value  = slot.start_time.substring(0, 5);
+  document.getElementById('qc-end').value    = slot.end_time.substring(0, 5);
+  document.getElementById('qc-name').value   = slot.class_name || '';
+  document.getElementById('qc-max').value    = String(slot.max_students);
+  document.getElementById('qc-status').value = slot.slot_status || 'active';
+  document.getElementById('qc-title').textContent = `Editar grupo — ${slot.class_name || slot.professor_name}`;
+  document.getElementById('btn-qc-save').textContent = 'Guardar cambios';
   modal.classList.remove('hidden');
 }
 
@@ -544,19 +614,28 @@ document.addEventListener('DOMContentLoaded', () => {
       const start  = document.getElementById('qc-start').value;
       const end    = document.getElementById('qc-end').value;
       if (!profId || !start || !end) { toast('Completa todos los campos requeridos', 'error'); return; }
+
+      const programId  = typeof CURRENT_PROGRAM !== 'undefined' ? CURRENT_PROGRAM : 1;
+      const editSlotId = qcModal._editSlotId;
+      const slotData   = {
+        program_id:   programId,
+        professor_id: profId,
+        day_of_week:  day,
+        start_time:   start,
+        end_time:     end,
+        class_name:   document.getElementById('qc-name').value.trim(),
+        max_students: parseInt(document.getElementById('qc-max').value) || 4,
+        slot_status:  document.getElementById('qc-status').value,
+      };
+
       try {
-        const programId = typeof CURRENT_PROGRAM !== 'undefined' ? CURRENT_PROGRAM : 1;
-        await api('api/slots.php', 'POST', {
-          program_id:   programId,
-          professor_id: profId,
-          day_of_week:  day,
-          start_time:   start,
-          end_time:     end,
-          class_name:   document.getElementById('qc-name').value.trim(),
-          max_students: parseInt(document.getElementById('qc-max').value) || 4,
-          slot_status:  document.getElementById('qc-status').value,
-        });
-        toast('Grupo creado ✓', 'success');
+        if (editSlotId) {
+          await api('api/slots.php', 'PUT', { ...slotData, slot_id: editSlotId });
+          toast('Grupo actualizado ✓', 'success');
+        } else {
+          await api('api/slots.php', 'POST', slotData);
+          toast('Grupo creado ✓', 'success');
+        }
         qcModal.classList.add('hidden');
         setTimeout(() => location.reload(), 600);
       } catch (e) { toast(e.message, 'error'); }
@@ -564,7 +643,67 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initSchedule();
+  initUserMenu();
 });
+
+// ── User menu (nav) ───────────────────────────────────
+function initUserMenu() {
+  const menuBtn      = document.getElementById('user-menu-btn');
+  const dropdown     = document.getElementById('user-dropdown');
+  const logoutBtn    = document.getElementById('btn-logout');
+  const changePassBtn= document.getElementById('btn-change-pass');
+  const cpModal      = document.getElementById('change-pass-modal');
+  const cpClose      = document.getElementById('change-pass-close');
+  const cpSave       = document.getElementById('btn-cp-save');
+
+  if (menuBtn && dropdown) {
+    menuBtn.onclick = (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    };
+    document.addEventListener('click', () => dropdown.classList.remove('open'));
+  }
+
+  if (logoutBtn) {
+    logoutBtn.onclick = async () => {
+      try {
+        // Detect if we're in an admin subdirectory
+        const base = window.location.pathname.includes('/admin/') ? '../' : '';
+        await fetch(base + 'api/auth.php', { method: 'DELETE' });
+        window.location.href = base + 'login.php';
+      } catch (_) { window.location.reload(); }
+    };
+  }
+
+  if (changePassBtn && cpModal) {
+    changePassBtn.onclick = () => {
+      document.getElementById('cp-current').value = '';
+      document.getElementById('cp-new').value     = '';
+      document.getElementById('cp-confirm').value = '';
+      if (dropdown) dropdown.classList.remove('open');
+      cpModal.classList.remove('hidden');
+    };
+  }
+  if (cpClose)  cpClose.onclick  = () => cpModal && cpModal.classList.add('hidden');
+  if (cpModal)  cpModal.onclick  = (e) => { if (e.target === cpModal) cpModal.classList.add('hidden'); };
+
+  if (cpSave) {
+    cpSave.onclick = async () => {
+      const current = document.getElementById('cp-current').value;
+      const newPass = document.getElementById('cp-new').value;
+      const confirm = document.getElementById('cp-confirm').value;
+      if (!current || !newPass) { toast('Completa todos los campos', 'error'); return; }
+      if (newPass !== confirm)  { toast('Las contraseñas no coinciden', 'error'); return; }
+      if (newPass.length < 6)   { toast('Mínimo 6 caracteres', 'error'); return; }
+      try {
+        const base = window.location.pathname.includes('/admin/') ? '../' : '';
+        await api(base + 'api/auth.php', 'PUT', { current_password: current, new_password: newPass });
+        toast('Contraseña actualizada ✓', 'success');
+        cpModal && cpModal.classList.add('hidden');
+      } catch (err) { toast(err.message, 'error'); }
+    };
+  }
+}
 
 // ── Utils ─────────────────────────────────────────────
 function mkDiv(cls, html) {

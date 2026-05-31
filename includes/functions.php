@@ -62,6 +62,7 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
             p.photo         AS professor_photo,
             e.id            AS booking_id,
             e.student_id,
+            e.guest_name,
             e.status        AS booking_status,
             e.notes         AS booking_notes,
             e.is_trial,
@@ -126,7 +127,9 @@ function getScheduleForWeek(string $weekStart, int $programId = 1): array {
             $schedule[$day][$sid]['bookings'][] = [
                 'booking_id'   => $row['booking_id'],
                 'student_id'   => $row['student_id'],
-                'student_name' => $row['student_name'],
+                'student_name' => $row['guest_name'] ?? $row['student_name'],
+                'guest_name'   => $row['guest_name'],
+                'is_guest'     => !empty($row['guest_name']) && empty($row['student_id']),
                 'status'       => $row['booking_status'],
                 'notes'        => $row['booking_notes'],
                 'is_trial'     => (bool)$row['is_trial'],
